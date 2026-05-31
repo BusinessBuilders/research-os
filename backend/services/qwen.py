@@ -19,7 +19,7 @@ def _strip_markdown_fences(text: str) -> str:
 
 
 class QwenClient:
-    def __init__(self, base_url: str, model: str = "", timeout: float = 120.0):
+    def __init__(self, base_url: str, model: str = "", timeout: float = 600.0):
         self.base_url = base_url
         self.model = model
         self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout)
