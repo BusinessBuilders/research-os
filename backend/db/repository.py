@@ -59,3 +59,28 @@ class SessionRepository:
         if row is None:
             return None
         return ResearchJob.model_validate_json(row["data"])
+
+    async def save_need_result(self, nr) -> None:
+        from core.models import NeedResult
+        await self._conn.execute(
+            "INSERT OR REPLACE INTO need_results (session_id, need_id, data) VALUES (?, ?, ?)",
+            (nr.session_id, nr.need_id, nr.model_dump_json()),
+        )
+        await self._conn.commit()
+
+    async def get_need_results(self, session_id: str) -> list:
+        from core.models import NeedResult
+        cursor = await self._conn.execute(
+            "SELECT data FROM need_results WHERE session_id = ? ORDER BY rowid",
+            (session_id,),
+        )
+        rows = await cursor.fetchall()
+        return [NeedResult.model_validate_json(r["data"]) for r in rows]
+
+    async def find_incomplete_jobs(self) -> list:
+        cursor = await self._conn.execute(
+            "SELECT data FROM jobs"
+        )
+        rows = await cursor.fetchall()
+        all_jobs = [ResearchJob.model_validate_json(r["data"]) for r in rows]
+        return [j for j in all_jobs if j.status not in ("complete", "failed", "cancelled")]

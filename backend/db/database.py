@@ -13,6 +13,13 @@ CREATE TABLE IF NOT EXISTS jobs (
     data TEXT NOT NULL,
     FOREIGN KEY (session_id) REFERENCES sessions(id)
 );
+
+CREATE TABLE IF NOT EXISTS need_results (
+    session_id TEXT NOT NULL,
+    need_id TEXT NOT NULL,
+    data TEXT NOT NULL,
+    PRIMARY KEY (session_id, need_id)
+);
 """
 
 

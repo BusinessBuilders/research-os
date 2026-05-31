@@ -104,3 +104,13 @@ class SynthesisResult(BaseModel):
     shopping_list: list[dict]
     total_cost: float
     deferred_items: list[dict] = Field(default_factory=list)
+
+
+class NeedResult(BaseModel):
+    session_id: str
+    need_id: str
+    need_description: str
+    status: Literal["pending", "searching", "evaluating", "complete", "failed"] = "pending"
+    products: list[ProductCard] = Field(default_factory=list)
+    error: str | None = None
+    searched_at: datetime | None = None
