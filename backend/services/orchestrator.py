@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 
 from core.models import (
@@ -15,6 +16,23 @@ MAX_SEARCH_ROUNDS = 1
 MIN_PRODUCTS_PER_NEED = 1
 
 
+async def _research_single_need(
+    need: Need,
+    qwen: QwenClient,
+    vane: VaneClient,
+) -> list:
+    try:
+        query = f"{need.description} {need.estimated_cost_range} buy compare review"
+        vane_result = await vane.search(
+            query=query,
+            optimization_mode="speed",
+            system_instructions="Find specific products with prices, specs, and purchase links. Include alternatives.",
+        )
+        return await evaluate_products(qwen, need.description, vane_result)
+    except Exception:
+        return []
+
+
 async def run_research_pipeline(
     session: ResearchSession,
     job: ResearchJob,
@@ -25,8 +43,6 @@ async def run_research_pipeline(
 ) -> ResearchSession:
     job.status = "searching"
     job.started_at = datetime.now(timezone.utc)
-    job.needs_total = len([n for n in session.needs if n.selected])
-    await repo.save_job(job)
 
     if not session.needs:
         from core.models import Need
@@ -38,42 +54,20 @@ async def run_research_pipeline(
         await repo.save_session(session)
 
     selected_needs = [n for n in session.needs if n.selected]
+    job.needs_total = len(selected_needs)
+    await repo.save_job(job)
 
-    for i, need in enumerate(selected_needs):
-        if job.status == "cancelled":
-            break
+    tasks = [
+        _research_single_need(need, qwen, vane)
+        for need in selected_needs
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
+    for need, result in zip(selected_needs, results):
+        if isinstance(result, list):
+            need.products = result
+        job.needs_completed += 1
         job.current_need = need.description
-        job.current_round = 0
-        job.status = "searching"
-        await repo.save_job(job)
-
-        products = []
-        for round_num in range(MAX_SEARCH_ROUNDS):
-            job.current_round = round_num + 1
-            await repo.save_job(job)
-
-            try:
-                query = f"{need.description} {need.estimated_cost_range} buy compare review"
-                vane_result = await vane.search(
-                    query=query,
-                    optimization_mode="quality",
-                    system_instructions="Find specific products with prices, specs, and purchase links. Include alternatives.",
-                )
-
-                job.status = "evaluating"
-                await repo.save_job(job)
-
-                new_products = await evaluate_products(qwen, need.description, vane_result)
-                products.extend(new_products)
-            except Exception:
-                continue
-
-            if len(products) >= MIN_PRODUCTS_PER_NEED:
-                break
-
-        need.products = products
-        job.needs_completed = i + 1
         await repo.save_job(job)
 
     session.status = "complete"
