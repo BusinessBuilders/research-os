@@ -1,0 +1,64 @@
+---
+date: "{{ decision.decision_date }}"
+type: decision
+kind: decision
+summary: "{{ summary }}"
+status: active
+confidence: medium
+tags: [decision, researchos]
+project: {{ decision.project_slug or "null" }}
+cssclasses: [decision-page]
+researchos:
+  session_id: "{{ session.id }}"
+  needs_addressed: {{ needs_addressed_yaml }}
+  selected_products:
+{%- for p in decision.selected_products %}
+    - name: "{{ p.name }}"
+      price: {{ p.price or 0 }}
+      source_url: "{{ p.source_url }}"
+{%- endfor %}
+  total_cost: {{ decision.total_cost }}
+  budget_category: {{ decision.budget_category or "null" }}
+  alternatives_considered: {{ decision.alternatives_considered }}
+  search_mode: "quality"
+---
+
+# Decision: {{ title }}
+
+> [!warning] Context
+> | | |
+> | :--- | :--- |
+> | **Date** | {{ decision.decision_date }} |
+> | **Project** | [[{{ decision.project_slug or "unassigned" }}]] |
+> | **Status** | `active` |
+
+## The Situation
+
+{{ decision.rationale }}
+
+## Options Considered
+
+| Option | Price | Fit | Pros | Cons |
+| :--- | :--- | :--- | :--- | :--- |
+{%- for p in all_products %}
+| {{ "**" ~ p.name ~ "**" ~ (" *(chosen)*" if p.selected_for_purchase else "") }} | {{ ("$" ~ "%.2f"|format(p.price)) if p.price else "N/A" }} | {{ p.fit_score }} | {{ p.fit_rationale[:60] }} | {{ ", ".join(p.risks[:2]) or "None noted" }} |
+{%- endfor %}
+
+## The Choice
+
+{% for p in decision.selected_products -%}
+Selected **{{ p.name }}** (${{ "%.2f"|format(p.price or 0) }}) from {{ p.source_name }}.
+{% endfor %}
+Total cost: **${{ "%.2f"|format(decision.total_cost) }}**{{ " against a $" ~ "%.2f"|format(session.budget) ~ " budget" if session.budget else "" }}.
+
+## Outcome
+
+*Outcome will be updated after purchase and use.*
+
+## Connections (Idea Compass)
+
+> [!info] This page's neighborhood
+> - **N — Parent pattern**: [[moc-decisions]], [[{{ decision.project_slug or "moc-projects" }}]]
+> - **S — Components**: {% for n in needs_addressed %}[[{{ n }}]]{{ ", " if not loop.last }}{% endfor %}
+> - **E — Similar to, other cluster**: *(fill in related decisions)*
+> - **W — Different from, other cluster**: *(fill in contrasting decisions)*
