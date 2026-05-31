@@ -28,14 +28,17 @@ class VaneClient:
         chat_model_key: str,
         embed_provider_id: str,
         embed_model_key: str,
-        timeout: float = 300.0,
+        timeout: float = 180.0,
     ):
         self.base_url = base_url
         self.chat_provider_id = chat_provider_id
         self.chat_model_key = chat_model_key
         self.embed_provider_id = embed_provider_id
         self.embed_model_key = embed_model_key
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout)
+        self._client = httpx.AsyncClient(
+            base_url=base_url,
+            timeout=httpx.Timeout(timeout, connect=10.0, read=180.0, write=10.0),
+        )
 
     async def close(self):
         await self._client.aclose()
@@ -43,7 +46,7 @@ class VaneClient:
     async def search(
         self,
         query: str,
-        optimization_mode: str = "balanced",
+        optimization_mode: str = "speed",
         sources: list[str] | None = None,
         system_instructions: str | None = None,
     ) -> VaneSearchResult:
@@ -67,6 +70,8 @@ class VaneClient:
         try:
             response = await self._client.post("/api/search", json=body)
             response.raise_for_status()
+        except httpx.TimeoutException as e:
+            raise VaneError(f"Vane search timed out after 180s: {e}") from e
         except httpx.HTTPError as e:
             raise VaneError(f"Vane search failed: {e}") from e
 
