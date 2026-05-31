@@ -17,6 +17,7 @@ export default function ResultsPage() {
   const [session, setSession] = useState<ResearchSession | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [researching, setResearching] = useState(true);
+  const [retrying, setRetrying] = useState(false);
 
   const loadSession = useCallback(async () => {
     const res = await fetch(`${API_URL}/api/sessions/${id}`);
@@ -33,6 +34,13 @@ export default function ResultsPage() {
       next.has(productId) ? next.delete(productId) : next.add(productId);
       return next;
     });
+  }
+
+  async function handleRetry() {
+    setRetrying(true);
+    await fetch(`${API_URL}/api/sessions/${id}/retry`, { method: "POST" });
+    setResearching(true);
+    setRetrying(false);
   }
 
   if (!session) return <p>Loading...</p>;
@@ -57,6 +65,7 @@ export default function ResultsPage() {
   }
 
   const allProducts = session.needs.flatMap(n => n.products);
+  const hasProducts = allProducts.length > 0;
 
   return (
     <div>
@@ -65,7 +74,16 @@ export default function ResultsPage() {
 
       {researching && <ResearchStatus sessionId={id} onComplete={loadSession} />}
 
-      {!researching && session.needs.map(need => (
+      {!researching && !hasProducts && (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground mb-4">No products found. The searches may have timed out.</p>
+          <Button onClick={handleRetry} disabled={retrying}>
+            {retrying ? "Retrying..." : "Retry Research"}
+          </Button>
+        </div>
+      )}
+
+      {session.needs.filter(n => n.products.length > 0).map(need => (
         <div key={need.id} className="mb-8">
           <h2 className="text-lg font-semibold mb-3">{need.description}</h2>
           <div className="space-y-3">
@@ -83,12 +101,17 @@ export default function ResultsPage() {
         </div>
       ))}
 
-      {!researching && allProducts.length > 0 && (
+      {!researching && hasProducts && (
         <div className="flex justify-between items-center mt-6">
           <p className="text-sm text-muted-foreground">{selectedIds.size} products selected</p>
-          <Button onClick={() => router.push(`/research/${id}/decide?selected=${Array.from(selectedIds).join(",")}`)}>
-            Decide on Winners
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleRetry} disabled={retrying}>
+              {retrying ? "Retrying..." : "Re-research"}
+            </Button>
+            <Button onClick={() => router.push(`/research/${id}/decide?selected=${Array.from(selectedIds).join(",")}`)}>
+              Decide on Winners
+            </Button>
+          </div>
         </div>
       )}
     </div>

@@ -59,3 +59,22 @@ export interface ResearchJob {
   needs_total: number;
   error: string | null;
 }
+
+export interface NeedStatus {
+  need_id: string;
+  description: string;
+  status: "pending" | "searching" | "evaluating" | "complete" | "failed";
+  product_count: number;
+  error: string | null;
+}
+
+export interface JobStatus {
+  job_id: string;
+  session_id: string;
+  status: string;
+  needs_completed: number;
+  needs_total: number;
+  error: string | null;
+  started_at: string | null;
+  need_statuses: NeedStatus[];
+}
