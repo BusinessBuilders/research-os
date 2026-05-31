@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import TypeVar
 
 import httpx
@@ -9,6 +10,12 @@ from pydantic import BaseModel, ValidationError
 from core.exceptions import QwenError
 
 T = TypeVar("T", bound=BaseModel)
+
+
+def _strip_markdown_fences(text: str) -> str:
+    stripped = re.sub(r"^```(?:json)?\s*\n?", "", text.strip())
+    stripped = re.sub(r"\n?```\s*$", "", stripped)
+    return stripped.strip()
 
 
 class QwenClient:
@@ -25,11 +32,11 @@ class QwenClient:
         system: str,
         user: str,
         response_model: type[T],
-        max_retries: int = 1,
+        max_retries: int = 2,
     ) -> T:
         schema = response_model.model_json_schema()
         messages = [
-            {"role": "system", "content": system},
+            {"role": "system", "content": system + "\n\nRespond with raw JSON only. No markdown, no code fences."},
             {"role": "user", "content": user},
         ]
 
@@ -38,7 +45,7 @@ class QwenClient:
             "messages": messages,
             "temperature": 0.2,
             "max_tokens": 4096,
-            "extra_body": {"guided_json": json.dumps(schema)},
+            "response_format": {"type": "json_object"},
         }
 
         for attempt in range(1 + max_retries):
@@ -50,6 +57,7 @@ class QwenClient:
 
             data = response.json()
             content = data["choices"][0]["message"]["content"]
+            content = _strip_markdown_fences(content)
 
             try:
                 return response_model.model_validate_json(content)
@@ -58,7 +66,7 @@ class QwenClient:
                     messages.append({"role": "assistant", "content": content})
                     messages.append({
                         "role": "user",
-                        "content": f"Your response failed validation:\n{e}\n\nPlease fix and return valid JSON matching the schema.",
+                        "content": f"Your response failed validation:\n{e}\n\nReturn ONLY valid JSON matching the schema. No markdown fences.",
                     })
                     continue
                 raise QwenError(f"Qwen output failed validation after {1 + max_retries} attempts: {e}") from e
