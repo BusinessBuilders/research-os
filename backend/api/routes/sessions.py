@@ -122,7 +122,71 @@ async def get_status(session_id: str, repo: SessionRepository = Depends(get_repo
     job = await repo.get_job(session_id)
     if job is None:
         raise HTTPException(404, "No research job for this session")
-    return job
+
+    need_results = await repo.get_need_results(session_id)
+    need_statuses = [
+        {
+            "need_id": nr.need_id,
+            "description": nr.need_description,
+            "status": nr.status,
+            "product_count": len(nr.products),
+            "error": nr.error,
+        }
+        for nr in need_results
+    ]
+
+    return {
+        "job_id": job.job_id,
+        "session_id": job.session_id,
+        "status": job.status,
+        "needs_completed": job.needs_completed,
+        "needs_total": job.needs_total,
+        "error": job.error,
+        "started_at": job.started_at.isoformat() if job.started_at else None,
+        "need_statuses": need_statuses,
+    }
+
+
+@router.post("/{session_id}/cancel")
+async def cancel_research(
+    session_id: str,
+    repo: SessionRepository = Depends(get_repo),
+):
+    job = await repo.get_job(session_id)
+    if job is None:
+        raise HTTPException(404, "No research job for this session")
+    if job.status in ("complete", "failed", "cancelled"):
+        return {"status": job.status, "message": "Job already finished"}
+
+    job.status = "cancelled"
+    job.error = "Cancelled by user"
+    await repo.save_job(job)
+    return {"status": "cancelled"}
+
+
+@router.post("/{session_id}/retry")
+async def retry_research(
+    session_id: str,
+    repo: SessionRepository = Depends(get_repo),
+    qwen: QwenClient = Depends(get_qwen),
+    vane: VaneClient = Depends(get_vane),
+    wiki: WikiReader = Depends(get_wiki_reader),
+):
+    session = await repo.get_session(session_id)
+    if session is None:
+        raise HTTPException(404, "Session not found")
+
+    job = ResearchJob(session_id=session.id)
+    await repo.save_job(job)
+
+    session.status = "researching"
+    await repo.save_session(session)
+
+    asyncio.create_task(
+        run_research_pipeline(session, job, repo, qwen, vane, wiki)
+    )
+
+    return {"job_id": job.job_id, "status": "queued"}
 
 
 class DecideRequest(BaseModel):
