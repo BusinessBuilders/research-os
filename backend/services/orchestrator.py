@@ -53,18 +53,21 @@ async def run_research_pipeline(
             job.current_round = round_num + 1
             await repo.save_job(job)
 
-            query = f"{need.description} {need.estimated_cost_range} buy compare review"
-            vane_result = await vane.search(
-                query=query,
-                optimization_mode="quality",
-                system_instructions="Find specific products with prices, specs, and purchase links. Include alternatives.",
-            )
+            try:
+                query = f"{need.description} {need.estimated_cost_range} buy compare review"
+                vane_result = await vane.search(
+                    query=query,
+                    optimization_mode="quality",
+                    system_instructions="Find specific products with prices, specs, and purchase links. Include alternatives.",
+                )
 
-            job.status = "evaluating"
-            await repo.save_job(job)
+                job.status = "evaluating"
+                await repo.save_job(job)
 
-            new_products = await evaluate_products(qwen, need.description, vane_result)
-            products.extend(new_products)
+                new_products = await evaluate_products(qwen, need.description, vane_result)
+                products.extend(new_products)
+            except Exception:
+                continue
 
             if len(products) >= MIN_PRODUCTS_PER_NEED:
                 break

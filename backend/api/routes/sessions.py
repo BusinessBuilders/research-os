@@ -68,6 +68,7 @@ async def analyze(
     session_id: str,
     repo: SessionRepository = Depends(get_repo),
     qwen: QwenClient = Depends(get_qwen),
+    vane: VaneClient = Depends(get_vane),
     wiki: WikiReader = Depends(get_wiki_reader),
 ):
     session = await repo.get_session(session_id)
@@ -79,7 +80,7 @@ async def analyze(
         wiki.read_project_page(slug) for slug in session.wiki_context
     )
 
-    needs = await analyze_gaps(qwen, session.goal, equipment, context_text, session.budget)
+    needs = await analyze_gaps(qwen, session.goal, equipment, context_text, session.budget, vane=vane)
     session.needs = needs
     session.status = "analyzing"
     await repo.save_session(session)
