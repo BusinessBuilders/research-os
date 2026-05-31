@@ -28,6 +28,15 @@ async def run_research_pipeline(
     job.needs_total = len([n for n in session.needs if n.selected])
     await repo.save_job(job)
 
+    if not session.needs:
+        from core.models import Need
+        session.needs = [Need(
+            description=session.goal,
+            rationale="Auto-generated from research goal",
+            priority="critical",
+        )]
+        await repo.save_session(session)
+
     selected_needs = [n for n in session.needs if n.selected]
 
     for i, need in enumerate(selected_needs):
