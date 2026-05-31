@@ -2,7 +2,7 @@ import json
 import httpx
 import pytest
 
-from core.models import Need, ResearchJob, ResearchSession
+from core.models import Need, NeedResult, ResearchJob, ResearchSession
 from db.repository import SessionRepository
 from services.orchestrator import run_research_pipeline
 from services.qwen import QwenClient
@@ -56,7 +56,7 @@ async def services(mock_all_transport, tmp_path):
     await repo.close()
 
 
-async def test_research_pipeline_completes(services):
+async def test_research_pipeline_saves_per_need(services):
     repo, qwen, vane, wiki = services
 
     session = ResearchSession(
@@ -64,13 +64,42 @@ async def test_research_pipeline_completes(services):
         needs=[Need(description="servo driver board", rationale="need PWM control")],
     )
     await repo.save_session(session)
-
     job = ResearchJob(session_id=session.id)
     await repo.save_job(job)
 
     result = await run_research_pipeline(session, job, repo, qwen, vane, wiki)
     assert result.status == "complete"
-    assert len(result.needs[0].products) >= 1
+
+    need_results = await repo.get_need_results(session.id)
+    assert len(need_results) == 1
+    assert need_results[0].status == "complete"
+    assert len(need_results[0].products) >= 1
 
     saved_job = await repo.get_job(session.id)
     assert saved_job.status == "complete"
+
+
+async def test_pipeline_resumes_skipping_done_needs(services):
+    repo, qwen, vane, wiki = services
+
+    session = ResearchSession(
+        goal="test",
+        needs=[
+            Need(id="n1", description="need one", rationale="r"),
+            Need(id="n2", description="need two", rationale="r"),
+        ],
+    )
+    await repo.save_session(session)
+
+    done = NeedResult(session_id=session.id, need_id="n1", need_description="need one", status="complete", products=[])
+    await repo.save_need_result(done)
+
+    job = ResearchJob(session_id=session.id)
+    await repo.save_job(job)
+
+    await run_research_pipeline(session, job, repo, qwen, vane, wiki)
+
+    results = await repo.get_need_results(session.id)
+    assert len(results) == 2
+    r2 = [r for r in results if r.need_id == "n2"][0]
+    assert r2.status == "complete"
