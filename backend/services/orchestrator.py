@@ -11,8 +11,8 @@ from services.qwen import QwenClient
 from services.vane_client import VaneClient
 from services.wiki_reader import WikiReader
 
-MAX_SEARCH_ROUNDS = 3
-MIN_PRODUCTS_PER_NEED = 2
+MAX_SEARCH_ROUNDS = 1
+MIN_PRODUCTS_PER_NEED = 1
 
 
 async def run_research_pipeline(

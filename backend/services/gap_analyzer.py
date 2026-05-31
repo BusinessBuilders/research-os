@@ -59,4 +59,4 @@ Based on the web research and community recommendations above, identify what equ
         user=user_prompt,
         response_model=GapAnalysisResult,
     )
-    return result.needs
+    return result.needs[:5]
