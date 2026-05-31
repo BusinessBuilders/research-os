@@ -5,9 +5,10 @@ After=researchos-backend.service
 [Service]
 User=nova
 WorkingDirectory=/home/nova/research-os/frontend
+Environment=PATH=/home/nova/.nvm/versions/node/v24.14.0/bin:/usr/local/bin:/usr/bin:/bin
+Environment=NEXT_PUBLIC_API_URL=http://100.76.233.80:8001
 ExecStart=/home/nova/.nvm/versions/node/v24.14.0/bin/npm run start -- -p 4000
 Restart=always
-Environment=NEXT_PUBLIC_API_URL=http://100.76.233.80:8001
 
 [Install]
 WantedBy=multi-user.target
