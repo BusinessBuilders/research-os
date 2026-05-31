@@ -28,7 +28,7 @@ class VaneClient:
         chat_model_key: str,
         embed_provider_id: str,
         embed_model_key: str,
-        timeout: float = 120.0,
+        timeout: float = 300.0,
     ):
         self.base_url = base_url
         self.chat_provider_id = chat_provider_id

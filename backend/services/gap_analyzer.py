@@ -36,8 +36,9 @@ async def analyze_gaps(
             web_context = f"Web research results:\n{result.message}\n\nSources:\n"
             for s in result.sources[:10]:
                 web_context += f"- {s.title} ({s.url}): {s.content[:200]}\n"
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.error(f"Vane search failed during gap analysis: {e}")
 
     user_prompt = f"""Goal: {goal}
 
