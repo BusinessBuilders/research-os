@@ -1,0 +1,13 @@
+[Unit]
+Description=ResearchOS Backend
+After=network.target
+
+[Service]
+User=nova
+WorkingDirectory=/home/nova/research-os/backend
+ExecStart=/home/nova/.local/bin/uv run uvicorn api.main:app --host 0.0.0.0 --port 8001
+Restart=always
+EnvironmentFile=/home/nova/research-os/backend/.env
+
+[Install]
+WantedBy=multi-user.target
