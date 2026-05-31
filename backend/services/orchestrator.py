@@ -90,7 +90,7 @@ async def run_research_pipeline(
         _research_single_need(session.id, need, qwen, vane, repo)
         for need in remaining
     ]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    await asyncio.gather(*tasks, return_exceptions=True)
 
     fresh_job = await repo.get_job(session.id)
     if fresh_job and fresh_job.status == "cancelled":
