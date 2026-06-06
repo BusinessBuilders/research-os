@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import type { ResearchSession, Need } from "@/lib/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://100.76.233.80:8001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 export default function GapsPage() {
   const { id } = useParams<{ id: string }>();

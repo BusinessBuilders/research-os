@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { JobStatus, NeedStatus } from "@/lib/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://100.76.233.80:8001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 function NeedStatusIcon({ status }: { status: NeedStatus["status"] }) {
   switch (status) {

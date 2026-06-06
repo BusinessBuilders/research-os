@@ -2,10 +2,10 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    vane_url: str = "http://100.76.233.80:3001"
-    qwen_url: str = "http://100.76.233.80:8080"
-    firecrawl_url: str = "http://100.76.233.80:3002"
-    wiki_path: str = "/home/magiccat/obsidian-vault-second-run/wiki"
+    vane_url: str = "http://localhost:3001"
+    qwen_url: str = "http://localhost:8080"
+    firecrawl_url: str = "http://localhost:3002"
+    wiki_path: str = "./wiki"
     db_path: str = "researchos.db"
     host: str = "0.0.0.0"
     port: int = 8001
