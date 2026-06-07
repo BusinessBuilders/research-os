@@ -6,10 +6,10 @@ from core.models import ProductCard
 from services.qwen import QwenClient
 from services.vane_client import VaneSearchResult
 
-SYSTEM = """You are a product research analyst. You extract real, purchasable products from search results.
+SYSTEM = """You are a product research analyst. You extract EVERY real, purchasable product from search results.
 
 RULES:
-1. Only extract products that have a real purchase link (Amazon, eBay, vendor site). Skip blog mentions without links.
+1. Extract ALL products with a purchase link. Do NOT filter, limit, or skip products. List everything.
 2. source_url MUST be a direct product page URL, not a search results page or category page.
 3. price should be the actual listed price. Set to null if not found — do NOT guess.
 4. source_name should be the retailer (Amazon, eBay, AliExpress, etc.) not the brand.
@@ -17,8 +17,10 @@ RULES:
 6. fit_rationale: 1-2 sentences explaining WHY. Reference community feedback if available.
 7. risks: real concerns like "no datasheet", "lead time 2-3 wk", "QC variance reported on Reddit".
 8. specs: extract key technical specifications as key-value pairs.
+9. If the same product appears on multiple retailers, list it ONCE with the best-priced source.
+10. Even products with incomplete data (missing price, partial specs) should be included — the user decides what matters.
 
-Return a JSON object with a "products" array."""
+Return a JSON object with a "products" array. There is NO limit on array size."""
 
 
 SYSTEM_WITH_COMMUNITY = """You are a product research analyst combining community intelligence with product data.
@@ -28,7 +30,7 @@ You have TWO inputs:
 2. Product listings from retailers — actual purchasable items with prices.
 
 RULES:
-1. Only extract products that have a real purchase link. Skip blog mentions without links.
+1. Extract ALL products with a purchase link. Do NOT filter, limit, or skip. List everything you find.
 2. source_url MUST be a direct product page URL.
 3. Incorporate community sentiment into fit_score and fit_rationale:
    - If Reddit users specifically recommend a product → boost fit_score and mention it.
@@ -38,8 +40,10 @@ RULES:
 6. source_name = the retailer, not the brand.
 7. fit_score: "strong"/"partial"/"poor" based on BOTH specs AND community reputation.
 8. specs: extract key technical specifications as key-value pairs.
+9. If the same product appears on multiple retailers, list it ONCE with the best-priced source.
+10. Even products with incomplete data should be included — the user decides what matters.
 
-Return a JSON object with a "products" array."""
+Return a JSON object with a "products" array. There is NO limit on array size."""
 
 
 class EvaluationResult(BaseModel):
@@ -53,16 +57,16 @@ async def evaluate_products(
     community_context: str = "",
 ) -> list[ProductCard]:
     sources_text = "\n\n".join(
-        f"Source: {s.title} ({s.url})\n{s.content[:500]}"
-        for s in vane_result.sources[:12]
+        f"Source: {s.title} ({s.url})\n{s.content}"
+        for s in vane_result.sources
     )
 
     parts = [f"Need: {need_description}"]
     if community_context:
-        parts.append(f"Community recommendations (Reddit/forums):\n{community_context[:2000]}")
-    parts.append(f"Search results summary:\n{vane_result.message[:3000]}")
+        parts.append(f"Community recommendations (Reddit/forums):\n{community_context}")
+    parts.append(f"Search results summary:\n{vane_result.message}")
     parts.append(f"Individual sources:\n{sources_text}")
-    parts.append("Extract every purchasable product found. Include community sentiment in your evaluation.")
+    parts.append("Extract EVERY purchasable product. No limit. List them all.")
 
     result = await qwen.generate(
         system=SYSTEM_WITH_COMMUNITY if community_context else SYSTEM,
@@ -80,21 +84,21 @@ async def evaluate_products_from_pages(
     community_context: str = "",
 ) -> list[ProductCard]:
     pages_text = "\n\n---\n\n".join(
-        f"Product page: {url}\n{content[:800]}"
-        for url, content in scraped_pages[:6]
+        f"Product page: {url}\n{content}"
+        for url, content in scraped_pages
     )
 
     sources_text = "\n\n".join(
-        f"Source: {s.title} ({s.url})\n{s.content[:300]}"
-        for s in vane_result.sources[:8]
+        f"Source: {s.title} ({s.url})\n{s.content}"
+        for s in vane_result.sources
     )
 
     parts = [f"Need: {need_description}"]
     if community_context:
-        parts.append(f"Community recommendations (Reddit/forums):\n{community_context[:2000]}")
+        parts.append(f"Community recommendations (Reddit/forums):\n{community_context}")
     parts.append(f"Scraped product pages (high-quality data):\n{pages_text}")
     parts.append(f"Additional search sources:\n{sources_text}")
-    parts.append("Extract every purchasable product. Prefer data from scraped product pages for prices and specs. Include community sentiment.")
+    parts.append("Extract EVERY purchasable product from ALL sources. No limit. Use scraped pages for accurate prices and specs. List them all.")
 
     result = await qwen.generate(
         system=SYSTEM_WITH_COMMUNITY if community_context else SYSTEM,

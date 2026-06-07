@@ -67,7 +67,7 @@ async def _scrape_product_urls(
     urls: list[str],
 ) -> list[tuple[str, str]]:
     results = []
-    for url in urls[:8]:
+    for url in urls[:15]:
         try:
             markdown = await firecrawl.scrape(url)
             if markdown and len(markdown) > 100:
