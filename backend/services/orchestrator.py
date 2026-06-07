@@ -11,6 +11,7 @@ from core.models import (
 from db.repository import SessionRepository
 from services.firecrawl_client import FirecrawlClient
 from services.product_evaluator import evaluate_products, evaluate_products_from_pages
+from services.query_optimizer import OptimizedQueries, optimize_queries
 from services.qwen import QwenClient
 from services.vane_client import VaneClient, VaneSearchResult
 from services.wiki_reader import WikiReader
@@ -23,15 +24,30 @@ RETAILERS = [
 ]
 
 
+async def _optimize_need_queries(
+    qwen: QwenClient,
+    need: Need,
+) -> OptimizedQueries:
+    try:
+        return await optimize_queries(qwen, need.description)
+    except Exception as e:
+        logger.warning(f"Query optimization failed for '{need.description[:40]}': {e}")
+        short = need.description.split("\t")[0].split(" — ")[0].strip()[:60]
+        return OptimizedQueries(
+            product_name=short,
+            search_queries=[short, f"{short} buy", f"best {short} reddit"],
+            evaluation_context=need.description,
+        )
+
+
 async def _search_retailer(
     vane: VaneClient,
-    need_description: str,
+    query: str,
     site: str,
     label: str,
 ) -> VaneSearchResult:
-    query = f"{need_description} site:{site}"
     return await vane.search(
-        query=query,
+        query=f"{query} site:{site}",
         optimization_mode="speed",
         system_instructions=f"Find specific products on {label} with prices, specs, and purchase links.",
     )
@@ -39,9 +55,8 @@ async def _search_retailer(
 
 async def _search_community(
     vane: VaneClient,
-    need_description: str,
+    query: str,
 ) -> VaneSearchResult:
-    query = f"{need_description} reddit recommendations best buy review"
     return await vane.search(
         query=query,
         optimization_mode="quality",
@@ -51,10 +66,8 @@ async def _search_community(
 
 async def _search_general(
     vane: VaneClient,
-    need_description: str,
-    cost_range: str,
+    query: str,
 ) -> VaneSearchResult:
-    query = f"{need_description} {cost_range} buy compare review".strip()
     return await vane.search(
         query=query,
         optimization_mode="speed",
@@ -94,12 +107,32 @@ async def _research_single_need(
     await repo.save_need_result(nr)
 
     try:
-        # Phase 1: Community intelligence + per-retailer search in parallel
+        # Phase 0: Optimize search queries with Qwen
+        optimized = await _optimize_need_queries(qwen, need)
+        logger.info(
+            f"Optimized '{need.description[:40]}' → "
+            f"product='{optimized.product_name}', "
+            f"queries={optimized.search_queries}"
+        )
+
+        # Phase 1: Parallel searches using optimized queries
         search_tasks = []
-        search_tasks.append(_search_community(vane, need.description))
+
+        # Community search with the community-focused query
+        community_query = next(
+            (q for q in optimized.search_queries if "reddit" in q.lower() or "best" in q.lower()),
+            optimized.search_queries[-1],
+        )
+        search_tasks.append(_search_community(vane, community_query))
+
+        # Retailer searches with the specific query
+        specific_query = optimized.search_queries[0]
         for site, label in RETAILERS:
-            search_tasks.append(_search_retailer(vane, need.description, site, label))
-        search_tasks.append(_search_general(vane, need.description, need.estimated_cost_range))
+            search_tasks.append(_search_retailer(vane, specific_query, site, label))
+
+        # General search with the broader query
+        broad_query = optimized.search_queries[1] if len(optimized.search_queries) > 1 else specific_query
+        search_tasks.append(_search_general(vane, broad_query))
 
         search_results = await asyncio.gather(*search_tasks, return_exceptions=True)
 
@@ -128,7 +161,7 @@ async def _research_single_need(
         nr.status = "evaluating"
         await repo.save_need_result(nr)
 
-        # Phase 2: Try Firecrawl for product page scraping
+        # Phase 2: Firecrawl scraping
         scraped_pages: list[tuple[str, str]] = []
         if firecrawl:
             product_urls = [
@@ -141,7 +174,9 @@ async def _research_single_need(
                 except Exception as e:
                     logger.warning(f"Firecrawl batch scrape failed, falling back: {e}")
 
-        # Phase 3: Evaluate products
+        # Phase 3: Evaluate products — pass evaluation_context so Qwen knows what matters
+        eval_description = f"{optimized.product_name}: {optimized.evaluation_context}"
+
         combined_vane = VaneSearchResult(
             message="\n\n".join(filter(None, [
                 r.message for r in [community_result, general_result, *retailer_results]
@@ -152,11 +187,11 @@ async def _research_single_need(
 
         if scraped_pages:
             products = await evaluate_products_from_pages(
-                qwen, need.description, combined_vane, scraped_pages, community_text,
+                qwen, eval_description, combined_vane, scraped_pages, community_text,
             )
         else:
             products = await evaluate_products(
-                qwen, need.description, combined_vane, community_text,
+                qwen, eval_description, combined_vane, community_text,
             )
 
         nr.products = products
@@ -164,13 +199,13 @@ async def _research_single_need(
         nr.searched_at = datetime.now(timezone.utc)
 
         logger.info(
-            f"Need '{need.description[:40]}' complete: "
+            f"Need '{optimized.product_name}' complete: "
             f"{len(unique_sources)} sources, {len(scraped_pages)} scraped, "
             f"{len(products)} products"
         )
 
     except Exception as e:
-        logger.error(f"Research failed for need {need.description}: {e}")
+        logger.error(f"Research failed for need {need.description[:60]}: {e}")
         nr.status = "failed"
         nr.error = str(e)[:500]
 
