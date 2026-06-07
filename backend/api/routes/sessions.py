@@ -27,6 +27,7 @@ class CreateSessionRequest(BaseModel):
     wiki_context: list[str] = []
     mode: str | None = None
     auto_research: bool = False
+    needs_list: list[str] | None = None
 
 
 @router.post("")
@@ -35,6 +36,24 @@ async def create_session(
     repo: SessionRepository = Depends(get_repo),
     qwen: QwenClient = Depends(get_qwen),
 ):
+    if req.needs_list:
+        mode = "goal-driven"
+        needs = [
+            Need(description=line.strip(), rationale="User-provided", selected=True)
+            for line in req.needs_list
+            if line.strip()
+        ]
+        session = ResearchSession(
+            goal=req.goal,
+            mode=mode,
+            budget=req.budget,
+            wiki_context=req.wiki_context,
+            needs=needs,
+            status="analyzing",
+        )
+        await repo.save_session(session)
+        return session
+
     if req.mode:
         mode = req.mode
     else:
