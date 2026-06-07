@@ -6,15 +6,75 @@ from datetime import datetime, timezone
 
 from core.models import (
     Citation, DirectLookupResult, Need, NeedResult,
-    ResearchJob, ResearchSession,
+    ProductCard, ResearchJob, ResearchSession,
 )
 from db.repository import SessionRepository
-from services.product_evaluator import evaluate_products
+from services.firecrawl_client import FirecrawlClient
+from services.product_evaluator import evaluate_products, evaluate_products_from_pages
 from services.qwen import QwenClient
-from services.vane_client import VaneClient
+from services.vane_client import VaneClient, VaneSearchResult
 from services.wiki_reader import WikiReader
 
 logger = logging.getLogger(__name__)
+
+RETAILERS = [
+    ("amazon.com", "Amazon"),
+    ("ebay.com", "eBay"),
+]
+
+
+async def _search_retailer(
+    vane: VaneClient,
+    need_description: str,
+    site: str,
+    label: str,
+) -> VaneSearchResult:
+    query = f"{need_description} site:{site}"
+    return await vane.search(
+        query=query,
+        optimization_mode="speed",
+        system_instructions=f"Find specific products on {label} with prices, specs, and purchase links.",
+    )
+
+
+async def _search_community(
+    vane: VaneClient,
+    need_description: str,
+) -> VaneSearchResult:
+    query = f"{need_description} reddit recommendations best buy review"
+    return await vane.search(
+        query=query,
+        optimization_mode="quality",
+        system_instructions="Find community recommendations, Reddit posts, forum discussions, and buying guides. Focus on what real users recommend and why.",
+    )
+
+
+async def _search_general(
+    vane: VaneClient,
+    need_description: str,
+    cost_range: str,
+) -> VaneSearchResult:
+    query = f"{need_description} {cost_range} buy compare review".strip()
+    return await vane.search(
+        query=query,
+        optimization_mode="speed",
+        system_instructions="Find specific products with prices, specs, and purchase links. Include specialty vendors and alternatives.",
+    )
+
+
+async def _scrape_product_urls(
+    firecrawl: FirecrawlClient,
+    urls: list[str],
+) -> list[tuple[str, str]]:
+    results = []
+    for url in urls[:8]:
+        try:
+            markdown = await firecrawl.scrape(url)
+            if markdown and len(markdown) > 100:
+                results.append((url, markdown))
+        except Exception as e:
+            logger.debug(f"Firecrawl scrape failed for {url}: {e}")
+    return results
 
 
 async def _research_single_need(
@@ -23,6 +83,7 @@ async def _research_single_need(
     qwen: QwenClient,
     vane: VaneClient,
     repo: SessionRepository,
+    firecrawl: FirecrawlClient | None = None,
 ) -> NeedResult:
     nr = NeedResult(
         session_id=session_id,
@@ -33,20 +94,80 @@ async def _research_single_need(
     await repo.save_need_result(nr)
 
     try:
-        query = f"{need.description} {need.estimated_cost_range} buy compare review"
-        vane_result = await vane.search(
-            query=query,
-            optimization_mode="speed",
-            system_instructions="Find specific products with prices, specs, and purchase links. Include alternatives.",
-        )
+        # Phase 1: Community intelligence + per-retailer search in parallel
+        search_tasks = []
+        search_tasks.append(_search_community(vane, need.description))
+        for site, label in RETAILERS:
+            search_tasks.append(_search_retailer(vane, need.description, site, label))
+        search_tasks.append(_search_general(vane, need.description, need.estimated_cost_range))
+
+        search_results = await asyncio.gather(*search_tasks, return_exceptions=True)
+
+        community_result = search_results[0] if not isinstance(search_results[0], Exception) else None
+        retailer_results = [r for r in search_results[1:-1] if not isinstance(r, Exception)]
+        general_result = search_results[-1] if not isinstance(search_results[-1], Exception) else None
+
+        all_sources = []
+        community_text = ""
+        if community_result:
+            community_text = community_result.message
+            all_sources.extend(community_result.sources)
+        for rr in retailer_results:
+            all_sources.extend(rr.sources)
+        if general_result:
+            all_sources.extend(general_result.sources)
+
+        # Deduplicate sources by URL
+        seen_urls: set[str] = set()
+        unique_sources = []
+        for src in all_sources:
+            if src.url and src.url not in seen_urls:
+                seen_urls.add(src.url)
+                unique_sources.append(src)
 
         nr.status = "evaluating"
         await repo.save_need_result(nr)
 
-        products = await evaluate_products(qwen, need.description, vane_result)
+        # Phase 2: Try Firecrawl for product page scraping
+        scraped_pages: list[tuple[str, str]] = []
+        if firecrawl:
+            product_urls = [
+                s.url for s in unique_sources
+                if s.url and any(domain in s.url for domain in ["amazon.com", "ebay.com", "walmart.com", "newegg.com"])
+            ]
+            if product_urls:
+                try:
+                    scraped_pages = await _scrape_product_urls(firecrawl, product_urls)
+                except Exception as e:
+                    logger.warning(f"Firecrawl batch scrape failed, falling back: {e}")
+
+        # Phase 3: Evaluate products
+        combined_vane = VaneSearchResult(
+            message="\n\n".join(filter(None, [
+                r.message for r in [community_result, general_result, *retailer_results]
+                if r and not isinstance(r, Exception)
+            ])),
+            sources=unique_sources,
+        )
+
+        if scraped_pages:
+            products = await evaluate_products_from_pages(
+                qwen, need.description, combined_vane, scraped_pages, community_text,
+            )
+        else:
+            products = await evaluate_products(
+                qwen, need.description, combined_vane, community_text,
+            )
+
         nr.products = products
         nr.status = "complete"
         nr.searched_at = datetime.now(timezone.utc)
+
+        logger.info(
+            f"Need '{need.description[:40]}' complete: "
+            f"{len(unique_sources)} sources, {len(scraped_pages)} scraped, "
+            f"{len(products)} products"
+        )
 
     except Exception as e:
         logger.error(f"Research failed for need {need.description}: {e}")
@@ -64,6 +185,7 @@ async def run_research_pipeline(
     qwen: QwenClient,
     vane: VaneClient,
     wiki: WikiReader,
+    firecrawl: FirecrawlClient | None = None,
 ) -> ResearchSession:
     job.status = "searching"
     job.started_at = datetime.now(timezone.utc)
@@ -89,7 +211,7 @@ async def run_research_pipeline(
     await repo.save_job(job)
 
     tasks = [
-        _research_single_need(session.id, need, qwen, vane, repo)
+        _research_single_need(session.id, need, qwen, vane, repo, firecrawl)
         for need in remaining
     ]
     await asyncio.gather(*tasks, return_exceptions=True)

@@ -6,7 +6,8 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from api.deps import get_qwen, get_repo, get_vane, get_wiki_reader, get_wiki_writer
+from api.deps import get_firecrawl, get_qwen, get_repo, get_vane, get_wiki_reader, get_wiki_writer
+from services.firecrawl_client import FirecrawlClient
 from core.models import Decision, Need, ResearchJob, ResearchSession
 from db.repository import SessionRepository
 from services.gap_analyzer import analyze_gaps
@@ -94,6 +95,7 @@ async def start_research(
     qwen: QwenClient = Depends(get_qwen),
     vane: VaneClient = Depends(get_vane),
     wiki: WikiReader = Depends(get_wiki_reader),
+    firecrawl: FirecrawlClient = Depends(get_firecrawl),
 ):
     session = await repo.get_session(session_id)
     if session is None:
@@ -111,7 +113,7 @@ async def start_research(
     await repo.save_session(session)
 
     asyncio.create_task(
-        run_research_pipeline(session, job, repo, qwen, vane, wiki)
+        run_research_pipeline(session, job, repo, qwen, vane, wiki, firecrawl)
     )
 
     return {"job_id": job.job_id, "status": job.status}
@@ -171,6 +173,7 @@ async def retry_research(
     qwen: QwenClient = Depends(get_qwen),
     vane: VaneClient = Depends(get_vane),
     wiki: WikiReader = Depends(get_wiki_reader),
+    firecrawl: FirecrawlClient = Depends(get_firecrawl),
 ):
     session = await repo.get_session(session_id)
     if session is None:
@@ -183,7 +186,7 @@ async def retry_research(
     await repo.save_session(session)
 
     asyncio.create_task(
-        run_research_pipeline(session, job, repo, qwen, vane, wiki)
+        run_research_pipeline(session, job, repo, qwen, vane, wiki, firecrawl)
     )
 
     return {"job_id": job.job_id, "status": "queued"}
