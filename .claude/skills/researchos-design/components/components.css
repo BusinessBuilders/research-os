@@ -1,0 +1,167 @@
+/* ============================================================
+   ResearchOS — Component styles
+   Class-based styling for the React primitives so hover/focus/
+   active states work without CSS-in-JS. JSX toggles modifier
+   classes; tokens come from styles.css.
+   ============================================================ */
+
+/* ---------- Button ---------- */
+.ros-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-weight: var(--weight-medium);
+  font-size: var(--text-body);
+  line-height: 1;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  height: 2.25rem; padding: 0 0.875rem;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease, transform .05s ease, box-shadow .15s ease;
+  user-select: none;
+}
+.ros-btn:focus-visible { outline: none; box-shadow: var(--glow-focus); }
+.ros-btn:active { transform: translateY(1px); }
+.ros-btn[disabled] { opacity: .5; pointer-events: none; }
+.ros-btn svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+
+.ros-btn--sm { height: 1.75rem; padding: 0 0.625rem; font-size: var(--text-sm); border-radius: var(--radius-md); }
+.ros-btn--lg { height: 2.625rem; padding: 0 1.25rem; font-size: var(--text-h3); }
+.ros-btn--icon { width: 2.25rem; height: 2.25rem; padding: 0; }
+
+.ros-btn--primary { background: var(--primary); color: var(--primary-foreground); }
+.ros-btn--primary:hover { background: var(--primary-hover); }
+
+.ros-btn--brand { background: var(--brand-gradient-h); color: #fff; position: relative; }
+.ros-btn--brand:hover { filter: brightness(1.08); box-shadow: var(--glow-brand); }
+
+.ros-btn--accent { background: var(--brand-periwinkle); color: var(--accent-foreground); }
+.ros-btn--accent:hover { background: var(--accent-hover); }
+
+.ros-btn--secondary { background: var(--surface-soft); color: var(--text); }
+.ros-btn--secondary:hover { background: var(--surface-3); }
+
+.ros-btn--outline { background: transparent; color: var(--text); border-color: var(--hairline-strong); }
+.ros-btn--outline:hover { background: var(--surface-soft); border-color: #44445a; }
+
+.ros-btn--ghost { background: transparent; color: var(--text-secondary); }
+.ros-btn--ghost:hover { background: var(--surface-soft); color: var(--text); }
+
+.ros-btn--destructive { background: var(--danger-soft); color: var(--danger-text); }
+.ros-btn--destructive:hover { background: rgba(239,68,68,0.24); }
+
+.ros-btn--link { background: transparent; color: var(--info-text); height: auto; padding: 0; border-radius: 0; }
+.ros-btn--link:hover { text-decoration: underline; }
+
+/* ---------- Badge ---------- */
+.ros-badge {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  height: 1.375rem; padding: 0 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  font-family: var(--font-sans);
+  font-size: var(--text-caption); font-weight: var(--weight-medium);
+  line-height: 1; white-space: nowrap;
+}
+.ros-badge svg { width: 0.75rem; height: 0.75rem; }
+.ros-badge--neutral   { background: var(--surface-soft); color: var(--text-secondary); border-color: var(--hairline); }
+.ros-badge--primary   { background: var(--primary); color: var(--primary-foreground); }
+.ros-badge--outline   { background: transparent; color: var(--text-secondary); border-color: var(--hairline-strong); }
+.ros-badge--success   { background: var(--success-soft); color: var(--success-text); border-color: rgba(34,197,94,0.30); }
+.ros-badge--warning   { background: var(--warning-soft); color: var(--warning-text); border-color: rgba(245,158,11,0.30); }
+.ros-badge--danger    { background: var(--danger-soft); color: var(--danger-text); border-color: rgba(239,68,68,0.30); }
+.ros-badge--info      { background: var(--info-soft); color: var(--info-text); border-color: rgba(59,130,246,0.30); }
+.ros-badge--brand     { background: rgba(189,187,255,0.14); color: var(--brand-periwinkle); border-color: rgba(189,187,255,0.32); }
+/* mono variant for technical labels */
+.ros-badge--mono { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: var(--mono-label-ls); font-size: var(--mono-label); }
+
+/* ---------- Card ---------- */
+.ros-card {
+  display: flex; flex-direction: column;
+  background: var(--card);
+  color: var(--card-foreground);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--ring-hairline), var(--elev-1);
+  overflow: hidden;
+}
+.ros-card--interactive { cursor: pointer; transition: background .15s ease, box-shadow .15s ease, transform .15s ease; }
+.ros-card--interactive:hover { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--hairline-strong), var(--elev-2); }
+.ros-card--pad { padding: var(--space-6); }
+.ros-card--pad-sm { padding: var(--space-4); }
+.ros-card__header { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-6) var(--space-6) 0; }
+.ros-card__title { font-size: var(--text-h3); font-weight: var(--weight-semibold); letter-spacing: var(--text-h3-ls); }
+.ros-card__desc { font-size: var(--text-sm); color: var(--text-muted); }
+.ros-card__content { padding: var(--space-6); }
+.ros-card__footer { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4) var(--space-6); border-top: 1px solid var(--hairline); background: rgba(255,255,255,0.015); }
+
+/* ---------- Input / Textarea ---------- */
+.ros-field {
+  width: 100%;
+  background: var(--surface-input);
+  color: var(--text);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  padding: 0.5rem 0.75rem;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.ros-field::placeholder { color: var(--text-faint); }
+.ros-field:hover { border-color: #3c3c50; }
+.ros-field:focus { outline: none; border-color: var(--brand-periwinkle); box-shadow: var(--glow-focus); }
+textarea.ros-field { min-height: 5rem; resize: vertical; line-height: var(--text-body-lh); }
+.ros-field--mono { font-family: var(--font-mono); }
+
+.ros-label { display: block; font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text-secondary); margin-bottom: var(--space-2); }
+.ros-hint { font-size: var(--text-caption); color: var(--text-muted); margin-top: var(--space-1-5); }
+
+/* ---------- Checkbox ---------- */
+.ros-check {
+  appearance: none; -webkit-appearance: none;
+  width: 1.05rem; height: 1.05rem; flex-shrink: 0;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-input);
+  cursor: pointer; position: relative;
+  transition: background .12s ease, border-color .12s ease;
+}
+.ros-check:hover { border-color: var(--brand-periwinkle); }
+.ros-check:focus-visible { outline: none; box-shadow: var(--glow-focus); }
+.ros-check:checked { background: var(--brand-periwinkle); border-color: var(--brand-periwinkle); }
+.ros-check:checked::after {
+  content: ""; position: absolute; left: 5px; top: 2px;
+  width: 4px; height: 8px; border: solid var(--canvas);
+  border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+
+/* ---------- Separator ---------- */
+.ros-sep { border: none; background: var(--hairline); }
+.ros-sep--h { height: 1px; width: 100%; margin: 0; }
+.ros-sep--v { width: 1px; align-self: stretch; }
+
+/* ---------- Domain: FitScore ---------- */
+.ros-fit { display: inline-flex; align-items: center; gap: var(--space-2); }
+.ros-fit__dot { width: 0.55rem; height: 0.55rem; border-radius: 9999px; flex-shrink: 0; }
+.ros-fit__dot--strong  { background: var(--success); box-shadow: 0 0 8px rgba(34,197,94,0.6); }
+.ros-fit__dot--partial { background: var(--warning); box-shadow: 0 0 8px rgba(245,158,11,0.55); }
+.ros-fit__dot--poor    { background: var(--danger);  box-shadow: 0 0 8px rgba(239,68,68,0.5); }
+.ros-fit__label { font-family: var(--font-mono); font-size: var(--mono-label); text-transform: uppercase; letter-spacing: var(--mono-label-ls); color: var(--text-muted); }
+
+/* ---------- Domain: BudgetPill ---------- */
+.ros-budget {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  height: 1.875rem; padding: 0 0.75rem;
+  border-radius: var(--radius-full);
+  background: rgba(200,246,249,0.10);
+  border: 1px solid rgba(200,246,249,0.28);
+  color: var(--brand-mint);
+  font-family: var(--font-mono); font-size: var(--mono-data);
+  font-variant-numeric: tabular-nums;
+}
+.ros-budget__dot { width: 0.45rem; height: 0.45rem; border-radius: 9999px; background: var(--brand-mint); box-shadow: 0 0 8px rgba(200,246,249,0.7); }
+
+/* ---------- Motion ---------- */
+@keyframes ros-spin { to { transform: rotate(360deg); } }
+.ros-spin { animation: ros-spin 1s linear infinite; transform-origin: center; display: inline-flex; }
+@media (prefers-reduced-motion: reduce) { .ros-spin { animation: none; } }

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" width="480" height="480">
+  <defs>
+    
+    <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fc4c02;stop-opacity:1"></stop>
+      <stop offset="50%" style="stop-color:#ef2cc1;stop-opacity:1"></stop>
+      <stop offset="100%" style="stop-color:#bdbbff;stop-opacity:1"></stop>
+    </linearGradient>
+    <linearGradient id="ribbonGradient" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" style="stop-color:#fc4c02;stop-opacity:0.8"></stop>
+      <stop offset="50%" style="stop-color:#ef2cc1;stop-opacity:0.6"></stop>
+      <stop offset="100%" style="stop-color:#bdbbff;stop-opacity:0.4"></stop>
+    </linearGradient>
+    
+    <filter id="markGlow">
+      <feGaussianBlur stdDeviation="6" result="blur"></feGaussianBlur>
+      <feMerge>
+        <feMergeNode in="blur"></feMergeNode>
+        <feMergeNode in="SourceGraphic"></feMergeNode>
+      </feMerge>
+    </filter>
+  </defs>
+
+  
+  <rect width="480" height="480" rx="4" fill="#010120"></rect>
+
+  
+  <path d="M 60 160 Q 140 120, 240 180 Q 340 240, 420 160" fill="none" stroke="url(#ribbonGradient)" stroke-width="2" opacity="0.5"></path>
+  <path d="M 60 170 Q 160 130, 240 190 Q 320 250, 420 170" fill="none" stroke="url(#ribbonGradient)" stroke-width="1" opacity="0.25"></path>
+
+  
+  <g transform="translate(240, 200)" filter="url(#markGlow)">
+    
+    <circle cx="-12" cy="-12" r="40" fill="none" stroke="url(#brandGradient)" stroke-width="3"></circle>
+    
+    <line x1="16" y1="16" x2="42" y2="42" stroke="url(#brandGradient)" stroke-width="3" stroke-linecap="round"></line>
+    
+    <circle cx="-24" cy="-20" r="3" fill="#fc4c02" opacity="0.9"></circle>
+    <circle cx="-4" cy="-28" r="2.5" fill="#ef2cc1" opacity="0.9"></circle>
+    <circle cx="-18" cy="-4" r="2" fill="#bdbbff" opacity="0.9"></circle>
+    
+    <line x1="-24" y1="-20" x2="-4" y2="-28" stroke="#ffffff" stroke-width="0.5" opacity="0.3"></line>
+    <line x1="-4" y1="-28" x2="-18" y2="-4" stroke="#ffffff" stroke-width="0.5" opacity="0.3"></line>
+    <line x1="-18" y1="-4" x2="-24" y2="-20" stroke="#ffffff" stroke-width="0.5" opacity="0.3"></line>
+  </g>
+
+  
+  <text x="240" y="310" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-size="42" font-weight="500" fill="#ffffff" letter-spacing="-1.2">Research<tspan fill="url(#brandGradient)">OS</tspan></text>
+
+  
+  <text x="240" y="340" text-anchor="middle" font-family="&#39;SF Mono&#39;, &#39;Fira Code&#39;, &#39;Cascadia Code&#39;, monospace" font-size="11" font-weight="500" fill="#999999" letter-spacing="3.5">AI PROCUREMENT ADVISOR</text>
+
+  
+  <line x1="160" y1="355" x2="320" y2="355" stroke="#26263a" stroke-width="1"></line>
+
+  
+  <text x="240" y="378" text-anchor="middle" font-family="&#39;SF Mono&#39;, &#39;Fira Code&#39;, &#39;Cascadia Code&#39;, monospace" font-size="10" font-weight="500" fill="#999999" letter-spacing="2" opacity="0.6">VANE · QWEN · LOCAL GPU</text>
+</svg>

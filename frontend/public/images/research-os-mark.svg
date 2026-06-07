@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="markGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fc4c02"></stop>
+      <stop offset="50%" stop-color="#ef2cc1"></stop>
+      <stop offset="100%" stop-color="#bdbbff"></stop>
+    </linearGradient>
+    <filter id="markGlowSm" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.4" result="blur"></feGaussianBlur>
+      <feMerge>
+        <feMergeNode in="blur"></feMergeNode>
+        <feMergeNode in="SourceGraphic"></feMergeNode>
+      </feMerge>
+    </filter>
+  </defs>
+  <g transform="translate(64,62)" filter="url(#markGlowSm)">
+    <circle cx="-12" cy="-12" r="40" fill="none" stroke="url(#markGradient)" stroke-width="3"></circle>
+    <line x1="16" y1="16" x2="42" y2="42" stroke="url(#markGradient)" stroke-width="3" stroke-linecap="round"></line>
+    <circle cx="-24" cy="-20" r="3" fill="#fc4c02" opacity="0.9"></circle>
+    <circle cx="-4" cy="-28" r="2.5" fill="#ef2cc1" opacity="0.9"></circle>
+    <circle cx="-18" cy="-4" r="2" fill="#bdbbff" opacity="0.9"></circle>
+    <line x1="-24" y1="-20" x2="-4" y2="-28" stroke="#ffffff" stroke-width="0.5" opacity="0.3"></line>
+    <line x1="-4" y1="-28" x2="-18" y2="-4" stroke="#ffffff" stroke-width="0.5" opacity="0.3"></line>
+    <line x1="-18" y1="-4" x2="-24" y2="-20" stroke="#ffffff" stroke-width="0.5" opacity="0.3"></line>
+  </g>
+</svg>

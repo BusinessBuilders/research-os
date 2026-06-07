@@ -1,0 +1,23 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Text on navy" subtitle="Four-step text hierarchy" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; background: var(--canvas); padding: 24px; font-family: var(--font-sans); }
+  .row { display: flex; flex-direction: column; gap: 14px; }
+  .line { display: flex; align-items: baseline; gap: 16px; }
+  .lbl { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--text-faint); width: 130px; }
+  .hex { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); margin-left: auto; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="line"><span class="lbl">text</span><span style="color:var(--text);font-size:18px;font-weight:600">Build the bill of materials</span><span class="hex">#ffffff</span></div>
+    <div class="line"><span class="lbl">text-secondary</span><span style="color:var(--text-secondary);font-size:15px">Secondary body & card descriptions</span><span class="hex">#c4c4d6</span></div>
+    <div class="line"><span class="lbl">text-muted</span><span style="color:var(--text-muted);font-size:14px">Captions, eyebrows, table cells</span><span class="hex">#9a9ab0</span></div>
+    <div class="line"><span class="lbl">text-faint</span><span style="color:var(--text-faint);font-size:14px">Placeholders & disabled</span><span class="hex">#5e5e78</span></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!-- @dsCard group="Brand" viewport="700x260" name="Logo lockup" subtitle="Full brand mark on the navy canvas" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; background: var(--canvas); padding: 24px; font-family: var(--font-sans); display: flex; gap: 28px; align-items: center; }
+  .logo { width: 230px; height: 230px; border-radius: var(--radius-lg); box-shadow: var(--ring-hairline); }
+  .mark { width: 96px; height: 96px; }
+  .notes { color: var(--text-muted); font-size: 13px; line-height: 1.7; }
+  .notes b { color: var(--text-secondary); font-weight: 600; }
+  .ey { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .14em; color: var(--text-faint); display: block; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+  <img class="logo" src="../assets/research-os-logo.svg" alt="ResearchOS logo" />
+  <div style="display:flex;flex-direction:column;gap:18px">
+    <img class="mark" src="../assets/research-os-mark.svg" alt="ResearchOS mark" />
+    <div class="notes">
+      <span class="ey">Usage</span>
+      Magnifier-orb mark in the brand gradient with three orbital dots.<br/>
+      Always on <b>navy or dark</b> surfaces — the gradient & glow are tuned for dark.<br/>
+      Keep clearspace ≥ the orb radius. Never recolor the gradient or add a fourth stop.
+    </div>
+  </div>
+</body>
+</html>

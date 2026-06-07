@@ -1,0 +1,76 @@
+/* ============================================================
+   ResearchOS — Color tokens
+   Dark-only "mission control" system, derived from the brand
+   logo (navy #010120 + orange→magenta→periwinkle gradient) and
+   the Together-lineage DESIGN.md brand foundation.
+   ============================================================ */
+
+:root {
+  /* ---- Brand gradient (THE decorative chrome — one fixed object) ---- */
+  --brand-orange:      #fc4c02;   /* gradient leg 1 */
+  --brand-magenta:     #ef2cc1;   /* gradient leg 2 */
+  --brand-periwinkle:  #bdbbff;   /* gradient leg 3 — also a soft UI accent */
+  --brand-mint:        #c8f6f9;   /* off-gradient pastel accent (budget pills, highlights) */
+
+  --brand-gradient:    linear-gradient(135deg, var(--brand-orange) 0%, var(--brand-magenta) 50%, var(--brand-periwinkle) 100%);
+  --brand-gradient-h:  linear-gradient(90deg,  var(--brand-orange) 0%, var(--brand-magenta) 50%, var(--brand-periwinkle) 100%);
+  /* faded ribbon used for atmosphere / hero washes */
+  --brand-ribbon:      linear-gradient(90deg, rgba(252,76,2,0.8) 0%, rgba(239,44,193,0.6) 50%, rgba(189,187,255,0.4) 100%); /* @kind color */
+
+  /* ---- Surfaces (deep navy stack) ---- */
+  --canvas:            #010120;   /* app background — the deep brand navy */
+  --surface-1:         #0a0a1c;   /* base panels / sidebar */
+  --surface-2:         #0e0e24;   /* cards */
+  --surface-3:         #15152e;   /* raised cards, popovers, hover lift */
+  --surface-input:     #14142a;   /* form field fills */
+  --surface-soft:      #1b1b34;   /* secondary buttons, table header rows, rails */
+
+  /* ---- Hairlines & borders (translucent-white-on-navy, pre-blended) ---- */
+  --hairline:          #26263a;   /* 1px dividers, card chrome, badge borders */
+  --hairline-strong:   #313641;   /* stronger dividers, input borders */
+  --border-glow:       rgba(189,187,255,0.28); /* focus ring tint (periwinkle) */
+
+  /* ---- Text ---- */
+  --text:              #ffffff;   /* headings + primary body on navy */
+  --text-secondary:    #c4c4d6;   /* secondary body, card descriptions */
+  --text-muted:        #9a9ab0;   /* captions, mono eyebrows, table cell secondary */
+  --text-faint:        #5e5e78;   /* placeholders, disabled, ghost labels */
+
+  /* ---- Primary action (authentic shadcn-dark: near-white pill) ---- */
+  --primary:           #ededf2;
+  --primary-foreground:#010120;
+  --primary-hover:     #ffffff;
+
+  /* ---- Accent / interactive ---- */
+  --accent:            var(--brand-periwinkle); /* links, accent fills */
+  --accent-foreground: #010120;
+  --accent-hover:      #cfcdff;
+
+  /* ---- Semantic (fit scores, status, validation) ---- */
+  --success:           #22c55e;   /* fit: strong, status: complete */
+  --success-soft:      rgba(34,197,94,0.14);
+  --success-text:      #4ade80;
+
+  --warning:           #f59e0b;   /* fit: partial, evaluating (amber accent) */
+  --warning-soft:      rgba(245,158,11,0.14);
+  --warning-text:      #fbbf24;
+
+  --danger:            #ef4444;   /* fit: poor, status: failed */
+  --danger-soft:       rgba(239,68,68,0.14);
+  --danger-text:       #f87171;
+
+  --info:              #3b82f6;   /* status: searching / analyzing, chart fill */
+  --info-soft:         rgba(59,130,246,0.16);
+  --info-text:         #60a5fa;
+
+  /* ---- Aliases used by components ---- */
+  --bg:                var(--canvas);
+  --fg:                var(--text);
+  --card:              var(--surface-2);
+  --card-foreground:   var(--text);
+  --muted:             var(--surface-soft);
+  --muted-foreground:  var(--text-muted);
+  --border:            var(--hairline);
+  --ring:              var(--border-glow);
+  --destructive:       var(--danger);
+}

@@ -1,9 +1,8 @@
+import { Package, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FitScore } from "@/components/fit-score";
 import type { ProductCard as ProductCardType } from "@/lib/types";
-
-const fitColors = { strong: "bg-green-500", partial: "bg-yellow-500", poor: "bg-red-500" };
 
 export function ProductCard({
   product, onToggle, checked,
@@ -11,31 +10,45 @@ export function ProductCard({
   product: ProductCardType; onToggle: (id: string) => void; checked: boolean;
 }) {
   return (
-    <Card className="p-4">
-      <div className="flex items-start gap-3">
-        <Checkbox checked={checked} onCheckedChange={() => onToggle(product.id)} className="mt-1" />
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <span className={`w-2.5 h-2.5 rounded-full ${fitColors[product.fit_score]}`} />
-            <span className="font-medium">{product.name}</span>
-            <span className="text-muted-foreground">
-              {product.price ? `$${product.price.toFixed(2)}` : "Price N/A"}
+    <div
+      className="rounded-[var(--radius-xl)] p-4"
+      style={{ background: "var(--surface-2)", boxShadow: "var(--ring-hairline), var(--elev-1)" }}
+    >
+      <div className="flex gap-3 items-start">
+        <Checkbox checked={checked} onCheckedChange={() => onToggle(product.id)} className="mt-[3px]" />
+        <div
+          className="w-11 h-11 rounded-lg shrink-0 flex items-center justify-center"
+          style={{ background: "var(--surface-soft)", color: "var(--text-faint)", boxShadow: "var(--ring-hairline)" }}
+        >
+          {product.image_url ? (
+            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover rounded-lg" />
+          ) : (
+            <Package size={18} />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2.5 justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <FitScore score={product.fit_score} showLabel={false} />
+              <span className="text-sm font-semibold whitespace-nowrap overflow-hidden text-ellipsis">{product.name}</span>
+            </div>
+            <span className="ros-mono text-[13px] text-[var(--text-secondary)] whitespace-nowrap shrink-0">
+              {product.price != null ? `$${product.price.toFixed(2)}` : "Price N/A"}
             </span>
-            <span className="text-xs text-muted-foreground">— {product.source_name}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">{product.fit_rationale}</p>
+          <div className="mt-[3px] text-xs text-muted-foreground">{product.source_name}</div>
+          <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">{product.fit_rationale}</p>
           {product.risks.length > 0 && (
-            <div className="flex gap-1 mt-2">
+            <div className="flex gap-1.5 mt-2 flex-wrap">
               {product.risks.map((r, i) => (
-                <Badge key={i} variant="outline" className="text-xs">{r}</Badge>
+                <Badge key={i} variant="outline" className="text-xs rounded-full border-[var(--hairline-strong)]">
+                  <TriangleAlert size={11} /> {r}
+                </Badge>
               ))}
             </div>
           )}
-          <a href={product.source_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 mt-1 inline-block">
-            View source
-          </a>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }

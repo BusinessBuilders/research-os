@@ -1,0 +1,39 @@
+/* ============================================================
+   ResearchOS — Base layer
+   Applies the brand canvas + type defaults. Dark-only.
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { font-family: var(--font-sans); -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--text-body-lh);
+  letter-spacing: var(--text-body-ls);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: rgba(189,187,255,0.30); color: #fff; }
+
+a { color: var(--info-text); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 9999px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: #44445a; background-clip: content-box; }
+
+/* Brand gradient text helper */
+.ros-gradient-text {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}

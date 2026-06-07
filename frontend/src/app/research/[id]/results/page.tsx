@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ChevronRight, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { ProductCard } from "@/components/product-card";
 import { PriceChart } from "@/components/price-chart";
 import { ResearchStatus } from "@/components/research-status";
@@ -43,19 +45,21 @@ export default function ResultsPage() {
     setRetrying(false);
   }
 
-  if (!session) return <p>Loading...</p>;
+  if (!session) return <p className="text-muted-foreground animate-pulse">Loading…</p>;
 
   if (session.mode === "direct-lookup" && session.lookup_result) {
     return (
       <div>
-        <h1 className="text-2xl font-bold mb-4">Answer</h1>
+        <div className="ros-eyebrow mb-2">Direct lookup</div>
+        <h1 className="text-2xl font-semibold tracking-tight mb-4">Answer</h1>
         <p className="mb-4">{session.lookup_result.answer}</p>
         {session.lookup_result.part_numbers.length > 0 && (
-          <p className="font-mono text-sm mb-4">Part numbers: {session.lookup_result.part_numbers.join(", ")}</p>
+          <p className="ros-mono text-sm mb-4">Part numbers: {session.lookup_result.part_numbers.join(", ")}</p>
         )}
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           {session.lookup_result.citations.map((c, i) => (
-            <a key={i} href={c.url} target="_blank" rel="noopener noreferrer" className="block text-sm text-blue-400">
+            <a key={i} href={c.url} target="_blank" rel="noopener noreferrer"
+              className="text-sm" style={{ color: "var(--info-text)" }}>
               {c.title}
             </a>
           ))}
@@ -66,27 +70,38 @@ export default function ResultsPage() {
 
   const allProducts = session.needs.flatMap(n => n.products);
   const hasProducts = allProducts.length > 0;
+  const needsWithProducts = session.needs.filter(n => n.products.length > 0);
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-2">Results</h1>
-      <p className="text-muted-foreground mb-6">{session.goal}</p>
+      <div className="mb-6">
+        <div className="ros-eyebrow mb-2">Results</div>
+        <h1 className="text-2xl font-semibold tracking-tight">Products found</h1>
+        <p className="text-sm text-muted-foreground mt-2">{session.goal} · scored against your goal and budget</p>
+      </div>
 
       {researching && <ResearchStatus sessionId={id} onComplete={loadSession} />}
 
       {!researching && !hasProducts && (
         <div className="text-center py-8">
           <p className="text-muted-foreground mb-4">No products found. The searches may have timed out.</p>
-          <Button onClick={handleRetry} disabled={retrying}>
-            {retrying ? "Retrying..." : "Retry Research"}
+          <Button variant="outline" onClick={handleRetry} disabled={retrying}>
+            <RotateCw size={14} /> {retrying ? "Retrying…" : "Retry Research"}
           </Button>
         </div>
       )}
 
-      {session.needs.filter(n => n.products.length > 0).map(need => (
-        <div key={need.id} className="mb-8">
-          <h2 className="text-lg font-semibold mb-3">{need.description}</h2>
-          <div className="space-y-3">
+      {needsWithProducts.map(need => (
+        <div key={need.id} className="mb-[30px]">
+          <div className="flex items-baseline gap-2.5 mb-3">
+            <h2 className="text-base font-semibold min-w-0">{need.description}</h2>
+            <span className="shrink-0">
+              <Badge variant="outline" className="rounded-full border-[var(--hairline)] bg-[var(--surface-soft)] text-[var(--text-secondary)]">
+                {need.products.length} found
+              </Badge>
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
             {need.products.map(p => (
               <ProductCard
                 key={p.id}
@@ -102,14 +117,18 @@ export default function ResultsPage() {
       ))}
 
       {!researching && hasProducts && (
-        <div className="flex justify-between items-center mt-6">
-          <p className="text-sm text-muted-foreground">{selectedIds.size} products selected</p>
+        <div className="flex justify-between items-center mt-2">
+          <span className="text-[13px] text-muted-foreground">{selectedIds.size} products selected</span>
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleRetry} disabled={retrying}>
-              {retrying ? "Retrying..." : "Re-research"}
+              <RotateCw size={14} /> {retrying ? "Retrying…" : "Re-research"}
             </Button>
-            <Button onClick={() => router.push(`/research/${id}/decide?selected=${Array.from(selectedIds).join(",")}`)}>
-              Decide on Winners
+            <Button
+              onClick={() => router.push(`/research/${id}/decide?selected=${Array.from(selectedIds).join(",")}`)}
+              className="text-white border-none"
+              style={{ background: "var(--brand-gradient-h)", boxShadow: "var(--glow-brand)" }}
+            >
+              Decide on Winners <ChevronRight size={15} />
             </Button>
           </div>
         </div>

@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
+import { PriorityBadge } from "@/components/priority-badge";
 import type { ResearchSession, Need } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
@@ -17,9 +17,9 @@ export default function GapsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch(`${API_URL}/api/sessions/${id}`).then(r => r.json()).then(s => {
+    fetch(`${API_URL}/api/sessions/${id}`).then(r => r.json()).then((s: ResearchSession) => {
       setSession(s);
-      setSelected(new Set(s.needs?.filter((n: Need) => n.selected).map((n: Need) => n.id) || []));
+      setSelected(new Set(s.needs?.filter((n: Need) => n.selected || n.priority !== "nice-to-have").map((n: Need) => n.id) || []));
     });
   }, [id]);
 
@@ -28,19 +28,28 @@ export default function GapsPage() {
     router.push(`/research/${id}/results`);
   }
 
-  if (!session) return <p>Loading...</p>;
-
-  const priorityColors = { critical: "destructive", important: "default", "nice-to-have": "secondary" } as const;
+  if (!session) {
+    return <p className="text-muted-foreground animate-pulse">Loading…</p>;
+  }
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-2">Gap Analysis</h1>
-      <p className="text-muted-foreground mb-6">{session.goal}</p>
+      <div className="mb-6">
+        <div className="ros-eyebrow mb-2">Gap analysis</div>
+        <h1 className="text-2xl font-semibold tracking-tight">What you&apos;ll need</h1>
+        <p className="text-sm text-muted-foreground mt-2 max-w-[620px]">
+          Qwen broke the goal into needs and scored each against your budget. Pick the ones to research.
+        </p>
+      </div>
 
-      <div className="space-y-3 mb-6">
+      <div className="flex flex-col gap-2.5 mb-[22px]">
         {session.needs.map((need) => (
-          <Card key={need.id} className="p-4">
-            <div className="flex items-start gap-3">
+          <div
+            key={need.id}
+            className="rounded-[var(--radius-xl)] p-4"
+            style={{ background: "var(--surface-2)", boxShadow: "var(--ring-hairline), var(--elev-1)" }}
+          >
+            <div className="flex gap-3 items-start">
               <Checkbox
                 checked={selected.has(need.id)}
                 onCheckedChange={() => {
@@ -48,23 +57,40 @@ export default function GapsPage() {
                   next.has(need.id) ? next.delete(need.id) : next.add(need.id);
                   setSelected(next);
                 }}
+                className="mt-0.5"
               />
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{need.description}</span>
-                  <Badge variant={priorityColors[need.priority]}>{need.priority}</Badge>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start gap-3 justify-between">
+                  <div className="flex-1 min-w-0 text-sm font-semibold leading-relaxed">
+                    {need.description}
+                    <span className="inline-flex align-middle ml-2">
+                      <PriorityBadge priority={need.priority} />
+                    </span>
+                  </div>
+                  <span className="ros-mono text-xs text-muted-foreground whitespace-nowrap shrink-0 mt-0.5">
+                    {need.estimated_cost_range}
+                  </span>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">{need.rationale}</p>
-                <p className="text-xs text-muted-foreground mt-1">{need.estimated_cost_range}</p>
+                <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">{need.rationale}</p>
               </div>
             </div>
-          </Card>
+          </div>
         ))}
       </div>
 
-      <Button onClick={handleResearch} disabled={selected.size === 0}>
-        Research {selected.size} Selected Needs
-      </Button>
+      <div className="flex justify-between items-center">
+        <span className="text-[13px] text-muted-foreground">
+          {selected.size} of {session.needs.length} selected
+        </span>
+        <Button
+          onClick={handleResearch}
+          disabled={selected.size === 0}
+          className="text-white border-none"
+          style={{ background: "var(--brand-gradient-h)", boxShadow: "var(--glow-brand)" }}
+        >
+          <Search size={15} /> Research {selected.size} Selected
+        </Button>
+      </div>
     </div>
   );
 }
