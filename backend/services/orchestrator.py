@@ -245,11 +245,25 @@ async def run_research_pipeline(
     job.needs_completed = len(done_ids)
     await repo.save_job(job)
 
-    tasks = [
-        _research_single_need(session.id, need, qwen, vane, repo, firecrawl)
-        for need in remaining
-    ]
-    await asyncio.gather(*tasks, return_exceptions=True)
+    BATCH_SIZE = 3
+    for i in range(0, len(remaining), BATCH_SIZE):
+        fresh_job = await repo.get_job(session.id)
+        if fresh_job and fresh_job.status == "cancelled":
+            return session
+
+        batch = remaining[i:i + BATCH_SIZE]
+        logger.info(f"Research batch {i // BATCH_SIZE + 1}/{(len(remaining) + BATCH_SIZE - 1) // BATCH_SIZE}: {[n.description[:30] for n in batch]}")
+        batch_tasks = [
+            _research_single_need(session.id, need, qwen, vane, repo, firecrawl)
+            for need in batch
+        ]
+        await asyncio.gather(*batch_tasks, return_exceptions=True)
+
+        job.needs_completed = len([
+            nr for nr in await repo.get_need_results(session.id)
+            if nr.status == "complete"
+        ])
+        await repo.save_job(job)
 
     fresh_job = await repo.get_job(session.id)
     if fresh_job and fresh_job.status == "cancelled":

@@ -57,14 +57,14 @@ async def evaluate_products(
     community_context: str = "",
 ) -> list[ProductCard]:
     sources_text = "\n\n".join(
-        f"Source: {s.title} ({s.url})\n{s.content}"
-        for s in vane_result.sources
+        f"Source: {s.title} ({s.url})\n{s.content[:600]}"
+        for s in vane_result.sources[:30]
     )
 
     parts = [f"Need: {need_description}"]
     if community_context:
-        parts.append(f"Community recommendations (Reddit/forums):\n{community_context}")
-    parts.append(f"Search results summary:\n{vane_result.message}")
+        parts.append(f"Community recommendations (Reddit/forums):\n{community_context[:3000]}")
+    parts.append(f"Search results summary:\n{vane_result.message[:4000]}")
     parts.append(f"Individual sources:\n{sources_text}")
     parts.append("Extract EVERY purchasable product. No limit. List them all.")
 
@@ -84,18 +84,18 @@ async def evaluate_products_from_pages(
     community_context: str = "",
 ) -> list[ProductCard]:
     pages_text = "\n\n---\n\n".join(
-        f"Product page: {url}\n{content}"
-        for url, content in scraped_pages
+        f"Product page: {url}\n{content[:1500]}"
+        for url, content in scraped_pages[:10]
     )
 
     sources_text = "\n\n".join(
-        f"Source: {s.title} ({s.url})\n{s.content}"
-        for s in vane_result.sources
+        f"Source: {s.title} ({s.url})\n{s.content[:400]}"
+        for s in vane_result.sources[:20]
     )
 
     parts = [f"Need: {need_description}"]
     if community_context:
-        parts.append(f"Community recommendations (Reddit/forums):\n{community_context}")
+        parts.append(f"Community recommendations (Reddit/forums):\n{community_context[:3000]}")
     parts.append(f"Scraped product pages (high-quality data):\n{pages_text}")
     parts.append(f"Additional search sources:\n{sources_text}")
     parts.append("Extract EVERY purchasable product from ALL sources. No limit. Use scraped pages for accurate prices and specs. List them all.")
