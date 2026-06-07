@@ -1,4 +1,4 @@
-import { Package, TriangleAlert } from "lucide-react";
+import { ExternalLink, Package, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FitScore } from "@/components/fit-score";
@@ -30,13 +30,29 @@ export function ProductCard({
           <div className="flex items-center gap-2.5 justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <FitScore score={product.fit_score} showLabel={false} />
-              <span className="text-sm font-semibold whitespace-nowrap overflow-hidden text-ellipsis">{product.name}</span>
+              <a
+                href={product.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-semibold whitespace-nowrap overflow-hidden text-ellipsis hover:underline"
+                style={{ color: "var(--text)" }}
+              >
+                {product.name}
+              </a>
             </div>
             <span className="ros-mono text-[13px] text-[var(--text-secondary)] whitespace-nowrap shrink-0">
               {product.price != null ? `$${product.price.toFixed(2)}` : "Price N/A"}
             </span>
           </div>
-          <div className="mt-[3px] text-xs text-muted-foreground">{product.source_name}</div>
+          <a
+            href={product.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-[3px] text-xs inline-flex items-center gap-1 hover:underline"
+            style={{ color: "var(--info-text)" }}
+          >
+            {product.source_name} <ExternalLink size={10} />
+          </a>
           <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">{product.fit_rationale}</p>
           {product.risks.length > 0 && (
             <div className="flex gap-1.5 mt-2 flex-wrap">

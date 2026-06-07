@@ -93,17 +93,29 @@ export default function SessionDetail() {
       if (!s) return;
 
       if (s.status === "decided") { router.push(`/research/${id}/decide`); return; }
-      if (s.status === "complete") { router.push(`/research/${id}/results`); return; }
+      if (s.status === "complete" || s.status === "researching") { router.push(`/research/${id}/results`); return; }
+
+      if (s.status === "analyzing" && s.needs?.length > 0) {
+        router.push(`/research/${id}/gaps`);
+        return;
+      }
 
       if (s.status === "created" && s.mode === "goal-driven") {
         setProcessing(true);
         await fetch(`${API_URL}/api/sessions/${id}/analyze`, { method: "POST" });
-        await loadSession();
+        const updated = await loadSession();
         setProcessing(false);
+        if (updated && updated.needs?.length > 0) {
+          router.push(`/research/${id}/gaps`);
+        }
+        return;
       }
 
-      if (s.status === "analyzing" && s.needs?.length > 0) {
-        router.push(`/research/${id}/gaps`);
+      if (s.status === "created") {
+        setProcessing(true);
+        await fetch(`${API_URL}/api/sessions/${id}/research`, { method: "POST" });
+        setProcessing(false);
+        router.push(`/research/${id}/results`);
         return;
       }
     }

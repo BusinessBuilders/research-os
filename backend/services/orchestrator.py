@@ -72,6 +72,8 @@ async def run_research_pipeline(
         session.needs = [Need(
             description=session.goal,
             rationale="Auto-generated from research goal",
+            estimated_cost_range="",
+            selected=True,
             priority="critical",
         )]
         await repo.save_session(session)

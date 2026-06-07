@@ -44,7 +44,7 @@ class QwenClient:
             "model": self.model,
             "messages": messages,
             "temperature": 0.2,
-            "max_tokens": 4096,
+            "max_tokens": 16384,
             "response_format": {"type": "json_object"},
         }
 
@@ -56,7 +56,12 @@ class QwenClient:
                 raise QwenError(f"Qwen API call failed: {e}") from e
 
             data = response.json()
-            content = data["choices"][0]["message"]["content"]
+            content = data["choices"][0]["message"].get("content") or ""
+            if not content.strip():
+                if attempt < max_retries:
+                    messages.append({"role": "user", "content": "You returned an empty response. Return ONLY valid JSON matching the schema."})
+                    continue
+                raise QwenError("Qwen returned empty content after retries")
             content = _strip_markdown_fences(content)
 
             try:
