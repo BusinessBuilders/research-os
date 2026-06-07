@@ -6,8 +6,22 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+import re
+
 from api.deps import get_firecrawl, get_qwen, get_repo, get_vane, get_wiki_reader, get_wiki_writer
 from services.firecrawl_client import FirecrawlClient
+
+
+def _clean_list_line(line: str) -> str:
+    """Clean a pasted list line: strip numbering, bullets, tabs, collapse whitespace."""
+    s = line.strip()
+    if not s:
+        return ""
+    s = re.sub(r"^\d+[\.\)\-:\s]+", "", s)
+    s = re.sub(r"^[-•*]\s+", "", s)
+    s = s.replace("\t", " — ", 1).replace("\t", ", ")
+    s = re.sub(r"\s{2,}", " ", s)
+    return s.strip()
 from core.models import Decision, Need, ResearchJob, ResearchSession
 from db.repository import SessionRepository
 from services.gap_analyzer import analyze_gaps
@@ -39,9 +53,9 @@ async def create_session(
     if req.needs_list:
         mode = "goal-driven"
         needs = [
-            Need(description=line.strip(), rationale="User-provided", selected=True)
+            Need(description=cleaned, rationale="User-provided", selected=True)
             for line in req.needs_list
-            if line.strip()
+            if (cleaned := _clean_list_line(line))
         ]
         session = ResearchSession(
             goal=req.goal,
