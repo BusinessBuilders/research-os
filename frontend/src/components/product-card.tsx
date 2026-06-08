@@ -1,4 +1,4 @@
-import { ExternalLink, Package, TriangleAlert } from "lucide-react";
+import { ExternalLink, MessageSquare, Package, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FitScore } from "@/components/fit-score";
@@ -54,6 +54,15 @@ export function ProductCard({
             {product.source_name} <ExternalLink size={10} />
           </a>
           <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">{product.fit_rationale}</p>
+          {product.community_note && (
+            <div
+              className="mt-2 px-3 py-2 rounded-lg text-[13px] leading-relaxed flex gap-2 items-start"
+              style={{ background: "rgba(189, 187, 255, 0.08)", border: "1px solid rgba(189, 187, 255, 0.15)" }}
+            >
+              <MessageSquare size={13} className="shrink-0 mt-0.5" style={{ color: "var(--brand-periwinkle)" }} />
+              <span style={{ color: "var(--text-secondary)" }}>{product.community_note}</span>
+            </div>
+          )}
           {product.risks.length > 0 && (
             <div className="flex gap-1.5 mt-2 flex-wrap">
               {product.risks.map((r, i) => (

@@ -8,6 +8,7 @@ export interface ProductCard {
   image_url: string | null;
   fit_score: "strong" | "partial" | "poor";
   fit_rationale: string;
+  community_note: string | null;
   specs: Record<string, string>;
   risks: string[];
   selected_for_purchase: boolean;

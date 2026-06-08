@@ -31,6 +31,7 @@ class ProductCard(BaseModel):
     image_url: str | None = None
     fit_score: Literal["strong", "partial", "poor"]
     fit_rationale: str
+    community_note: str | None = None
     specs: dict[str, str] = Field(default_factory=dict)
     risks: list[str] = Field(default_factory=list)
     selected_for_purchase: bool = False

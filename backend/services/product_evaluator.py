@@ -32,16 +32,19 @@ You have TWO inputs:
 RULES:
 1. Extract ALL products with a purchase link. Do NOT filter, limit, or skip. List everything you find.
 2. source_url MUST be a direct product page URL.
-3. Incorporate community sentiment into fit_score and fit_rationale:
-   - If Reddit users specifically recommend a product → boost fit_score and mention it.
-   - If Reddit users warn against a product → lower fit_score and note the warning.
-4. risks should include community-reported issues ("Reddit users report gear stripping under load").
-5. price should be actual listed price. Set to null if not found.
-6. source_name = the retailer, not the brand.
-7. fit_score: "strong"/"partial"/"poor" based on BOTH specs AND community reputation.
-8. specs: extract key technical specifications as key-value pairs.
-9. If the same product appears on multiple retailers, list it ONCE with the best-priced source.
-10. Even products with incomplete data should be included — the user decides what matters.
+3. fit_rationale: 1-2 sentences explaining why this product fits the need based on specs and features.
+4. community_note: What Reddit/forums say about this specific product or brand. Examples:
+   - "Highly recommended on r/machinists — multiple users call this the gold standard for hobby mills"
+   - "Reddit users warn: collet runout is inconsistent, check with dial indicator on arrival"
+   - "Popular budget pick on r/hobbycnc, 4.5 star average across 200+ reviews"
+   Set to null ONLY if the community sources have zero mentions of this product or brand.
+5. risks should include community-reported issues ("Reddit users report gear stripping under load").
+6. price should be actual listed price. Set to null if not found.
+7. source_name = the retailer, not the brand.
+8. fit_score: "strong"/"partial"/"poor" based on BOTH specs AND community reputation.
+9. specs: extract key technical specifications as key-value pairs.
+10. If the same product appears on multiple retailers, list it ONCE with the best-priced source.
+11. Even products with incomplete data should be included — the user decides what matters.
 
 Return a JSON object with a "products" array. There is NO limit on array size."""
 
