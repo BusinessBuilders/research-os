@@ -144,6 +144,34 @@ def test_collect_candidate_urls_includes_message_and_content():
     assert "https://newegg.com/p/x" in urls
 
 
+# --- Gap analysis cannot emit products -------------------------------------------
+
+def test_gap_analysis_schema_has_no_product_fields():
+    from services.gap_analyzer import GapAnalysisResult
+
+    schema = str(GapAnalysisResult.model_json_schema())
+    # The schema sent to the LLM must not advertise product fields, or the
+    # model fabricates example products (dead links) at analyze time
+    for field in ("source_url", "image_url", "quality_score", "ProductCard"):
+        assert field not in schema
+
+
+def test_gap_analysis_result_ignores_embedded_products():
+    from services.gap_analyzer import GapAnalysisResult
+
+    # Even if the LLM volunteers products, the slim schema drops them
+    result = GapAnalysisResult.model_validate({
+        "needs": [{
+            "description": "Bookbinding glue",
+            "rationale": "needed",
+            "priority": "critical",
+            "estimated_cost_range": "$20-40",
+            "products": [{"name": "Fake", "source_url": "https://www.amazon.com/fake"}],
+        }]
+    })
+    assert not hasattr(result.needs[0], "products")
+
+
 # --- Scrape URL allowlist -------------------------------------------------------
 
 def test_scrape_allowlist_exact_host():

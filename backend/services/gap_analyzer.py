@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from core.models import Need
@@ -13,8 +15,19 @@ Be specific about parts, tools, and components. Consider the user's budget if pr
 Return a JSON object with a "needs" array, each with: description, rationale, priority (critical/important/nice-to-have), estimated_cost_range."""
 
 
+# Deliberately NOT the full Need model: Need embeds ProductCard, and a schema
+# that advertises product fields invites the LLM to fabricate example products
+# (dead amazon links, example.com images) at analyze time, before any real
+# search has run. NB: a docstring here would leak into the LLM-facing schema.
+class NeedSpec(BaseModel):
+    description: str
+    rationale: str = ""
+    priority: Literal["critical", "important", "nice-to-have"] = "important"
+    estimated_cost_range: str = ""
+
+
 class GapAnalysisResult(BaseModel):
-    needs: list[Need] = Field(default_factory=list)
+    needs: list[NeedSpec] = Field(default_factory=list)
 
 
 async def analyze_gaps(
@@ -59,4 +72,12 @@ Based on the web research and community recommendations above, identify what equ
         user=user_prompt,
         response_model=GapAnalysisResult,
     )
-    return result.needs[:5]
+    return [
+        Need(
+            description=spec.description,
+            rationale=spec.rationale,
+            priority=spec.priority,
+            estimated_cost_range=spec.estimated_cost_range,
+        )
+        for spec in result.needs[:5]
+    ]
