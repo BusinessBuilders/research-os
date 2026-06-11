@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -26,7 +25,11 @@ from core.models import Decision, Need, ResearchJob, ResearchSession
 from db.repository import SessionRepository
 from services.gap_analyzer import analyze_gaps
 from services.intent_classifier import classify_intent
-from services.orchestrator import run_direct_lookup, run_research_pipeline
+from services.orchestrator import (
+    run_direct_lookup,
+    run_research_pipeline,
+    spawn_pipeline_task,
+)
 from services.qwen import QwenClient
 from services.vane_client import VaneClient
 from services.wiki_reader import WikiReader
@@ -121,9 +124,14 @@ async def analyze(
     return session
 
 
+class StartResearchRequest(BaseModel):
+    need_ids: list[str] | None = None
+
+
 @router.post("/{session_id}/research")
 async def start_research(
     session_id: str,
+    req: StartResearchRequest | None = None,
     repo: SessionRepository = Depends(get_repo),
     qwen: QwenClient = Depends(get_qwen),
     vane: VaneClient = Depends(get_vane),
@@ -139,13 +147,19 @@ async def start_research(
         await repo.save_session(session)
         return {"session": session}
 
+    # Honor the gap-analysis checkbox selection when the frontend sends one
+    if req is not None and req.need_ids is not None and session.needs:
+        chosen = set(req.need_ids)
+        for need in session.needs:
+            need.selected = need.id in chosen
+
     job = ResearchJob(session_id=session.id)
     await repo.save_job(job)
 
     session.status = "researching"
     await repo.save_session(session)
 
-    asyncio.create_task(
+    spawn_pipeline_task(
         run_research_pipeline(session, job, repo, qwen, vane, wiki, firecrawl)
     )
 
@@ -212,13 +226,21 @@ async def retry_research(
     if session is None:
         raise HTTPException(404, "Session not found")
 
+    # Supersede any unfinished previous job so startup recovery doesn't
+    # re-spawn a second pipeline for this session
+    old_job = await repo.get_job(session_id)
+    if old_job and old_job.status not in ("complete", "failed", "cancelled"):
+        old_job.status = "cancelled"
+        old_job.error = "Superseded by retry"
+        await repo.save_job(old_job)
+
     job = ResearchJob(session_id=session.id)
     await repo.save_job(job)
 
     session.status = "researching"
     await repo.save_session(session)
 
-    asyncio.create_task(
+    spawn_pipeline_task(
         run_research_pipeline(session, job, repo, qwen, vane, wiki, firecrawl)
     )
 

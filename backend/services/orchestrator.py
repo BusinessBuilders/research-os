@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 from core.models import (
     Citation, DirectLookupResult, Need, NeedResult,
@@ -22,6 +23,35 @@ RETAILERS = [
     ("amazon.com", "Amazon"),
     ("ebay.com", "eBay"),
 ]
+
+SCRAPE_DOMAINS = ("amazon.com", "ebay.com", "walmart.com", "newegg.com")
+SCRAPE_CONCURRENCY = 5
+SCRAPE_TIMEOUT_SECONDS = 20.0
+NEED_TIMEOUT_SECONDS = 1200.0  # hard ceiling per need; a hung search/eval must not stall the batch forever
+
+# Strong references to fire-and-forget pipeline tasks: without these,
+# asyncio tasks can be garbage-collected (silently cancelled) mid-run
+_background_tasks: set[asyncio.Task] = set()
+
+
+def spawn_pipeline_task(coro) -> asyncio.Task:
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return task
+
+
+def _is_scrapeable_product_url(url: str) -> bool:
+    # Exact host match (or subdomain), not substring — "evil.com/amazon.com"
+    # must not pass and get fetched server-side by Firecrawl
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    if parsed.scheme not in ("http", "https"):
+        return False
+    host = (parsed.hostname or "").lower()
+    return any(host == d or host.endswith("." + d) for d in SCRAPE_DOMAINS)
 
 
 async def _optimize_need_queries(
@@ -79,14 +109,29 @@ async def _scrape_product_urls(
     firecrawl: FirecrawlClient,
     urls: list[str],
 ) -> list[tuple[str, str]]:
-    results = []
-    for url in urls[:15]:
-        try:
-            markdown = await firecrawl.scrape(url)
-            if markdown and len(markdown) > 100:
-                results.append((url, markdown))
-        except Exception as e:
-            logger.debug(f"Firecrawl scrape failed for {url}: {e}")
+    semaphore = asyncio.Semaphore(SCRAPE_CONCURRENCY)
+    target_urls = urls[:15]
+
+    async def scrape_one(url: str) -> tuple[str, str] | None:
+        async with semaphore:
+            try:
+                markdown = await asyncio.wait_for(
+                    firecrawl.scrape(url), timeout=SCRAPE_TIMEOUT_SECONDS
+                )
+            except Exception as e:
+                logger.debug(f"Firecrawl scrape failed for {url}: {e}")
+                return None
+        if markdown and len(markdown) > 100:
+            return (url, markdown)
+        return None
+
+    scraped = await asyncio.gather(*(scrape_one(u) for u in target_urls))
+    results = [r for r in scraped if r is not None]
+    if target_urls and not results:
+        logger.warning(
+            f"All {len(target_urls)} Firecrawl scrapes failed or returned nothing — "
+            "evaluation will fall back to search summaries only"
+        )
     return results
 
 
@@ -104,9 +149,10 @@ async def _research_single_need(
         need_description=need.description,
         status="searching",
     )
-    await repo.save_need_result(nr)
 
     try:
+        await repo.save_need_result(nr)
+
         # Phase 0: Optimize search queries with Qwen
         optimized = await _optimize_need_queries(qwen, need)
         logger.info(
@@ -166,7 +212,7 @@ async def _research_single_need(
         if firecrawl:
             product_urls = [
                 s.url for s in unique_sources
-                if s.url and any(domain in s.url for domain in ["amazon.com", "ebay.com", "walmart.com", "newegg.com"])
+                if s.url and _is_scrapeable_product_url(s.url)
             ]
             if product_urls:
                 try:
@@ -213,7 +259,61 @@ async def _research_single_need(
     return nr
 
 
+async def _research_need_with_timeout(
+    session_id: str,
+    need: Need,
+    qwen: QwenClient,
+    vane: VaneClient,
+    repo: SessionRepository,
+    firecrawl: FirecrawlClient | None = None,
+) -> NeedResult:
+    try:
+        return await asyncio.wait_for(
+            _research_single_need(session_id, need, qwen, vane, repo, firecrawl),
+            timeout=NEED_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.error(f"Need timed out after {NEED_TIMEOUT_SECONDS:.0f}s: {need.description[:60]}")
+        nr = NeedResult(
+            session_id=session_id,
+            need_id=need.id,
+            need_description=need.description,
+            status="failed",
+            error=f"Timed out after {NEED_TIMEOUT_SECONDS:.0f}s",
+        )
+        await repo.save_need_result(nr)
+        return nr
+
+
 async def run_research_pipeline(
+    session: ResearchSession,
+    job: ResearchJob,
+    repo: SessionRepository,
+    qwen: QwenClient,
+    vane: VaneClient,
+    wiki: WikiReader,
+    firecrawl: FirecrawlClient | None = None,
+) -> ResearchSession:
+    # Any escape from the body must mark the job failed — a job left in
+    # "searching" is re-spawned by recover_incomplete_jobs on every restart
+    try:
+        return await _run_research_pipeline_inner(
+            session, job, repo, qwen, vane, wiki, firecrawl
+        )
+    except Exception as e:
+        logger.exception(f"Research pipeline crashed for session {session.id}: {e}")
+        job.status = "failed"
+        job.error = f"Pipeline error: {str(e)[:400]}"
+        try:
+            await repo.save_job(job)
+            session.status = "failed"
+            await repo.save_session(session)
+        except Exception:
+            logger.exception("Could not persist failed state")
+        return session
+
+
+async def _run_research_pipeline_inner(
     session: ResearchSession,
     job: ResearchJob,
     repo: SessionRepository,
@@ -254,7 +354,7 @@ async def run_research_pipeline(
         batch = remaining[i:i + BATCH_SIZE]
         logger.info(f"Research batch {i // BATCH_SIZE + 1}/{(len(remaining) + BATCH_SIZE - 1) // BATCH_SIZE}: {[n.description[:30] for n in batch]}")
         batch_tasks = [
-            _research_single_need(session.id, need, qwen, vane, repo, firecrawl)
+            _research_need_with_timeout(session.id, need, qwen, vane, repo, firecrawl)
             for need in batch
         ]
         await asyncio.gather(*batch_tasks, return_exceptions=True)
@@ -282,13 +382,13 @@ async def run_research_pipeline(
     if has_failures and job.needs_completed == 0:
         job.status = "failed"
         job.error = "All searches failed"
+        session.status = "failed"
     else:
         job.status = "complete"
+        session.status = "complete"
 
     job.current_need = None
     await repo.save_job(job)
-
-    session.status = "complete"
     await repo.save_session(session)
 
     return session
@@ -335,7 +435,7 @@ async def recover_incomplete_jobs(
             continue
 
         logger.info(f"Recovering job {job.job_id} for session {session.id}")
-        asyncio.create_task(
+        spawn_pipeline_task(
             run_research_pipeline(session, job, repo, qwen, vane, wiki)
         )
         recovered += 1

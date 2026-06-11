@@ -35,20 +35,39 @@ class QwenClient:
         max_retries: int = 2,
     ) -> T:
         schema = response_model.model_json_schema()
-        messages = [
-            {"role": "system", "content": system + "\n\nRespond with raw JSON only. No markdown, no code fences."},
-            {"role": "user", "content": user},
-        ]
+        system_full = (
+            system
+            + "\n\nRespond with raw JSON only. No markdown, no code fences."
+            + "\n\nYour JSON MUST match this schema exactly:\n"
+            + json.dumps(schema)
+        )
 
-        body = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": 0.2,
-            "max_tokens": 16384,
-            "response_format": {"type": "json_object"},
-        }
+        last_error: str = ""
+        for _attempt in range(1 + max_retries):
+            # Fresh messages each attempt — appending failed outputs grows the
+            # request every retry, which compounds thinking-model truncation
+            messages = [
+                {"role": "system", "content": system_full},
+                {"role": "user", "content": user},
+            ]
+            if last_error:
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "Your previous response was rejected: "
+                        f"{last_error[:800]}\n"
+                        "Return ONLY valid JSON matching the schema. No markdown fences."
+                    ),
+                })
 
-        for attempt in range(1 + max_retries):
+            body = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": 0.2,
+                "max_tokens": 16384,
+                "response_format": {"type": "json_object"},
+            }
+
             try:
                 response = await self._client.post("/v1/chat/completions", json=body)
                 response.raise_for_status()
@@ -58,22 +77,16 @@ class QwenClient:
             data = response.json()
             content = data["choices"][0]["message"].get("content") or ""
             if not content.strip():
-                if attempt < max_retries:
-                    messages.append({"role": "user", "content": "You returned an empty response. Return ONLY valid JSON matching the schema."})
-                    continue
-                raise QwenError("Qwen returned empty content after retries")
+                last_error = "empty response"
+                continue
             content = _strip_markdown_fences(content)
 
             try:
                 return response_model.model_validate_json(content)
             except ValidationError as e:
-                if attempt < max_retries:
-                    messages.append({"role": "assistant", "content": content})
-                    messages.append({
-                        "role": "user",
-                        "content": f"Your response failed validation:\n{e}\n\nReturn ONLY valid JSON matching the schema. No markdown fences.",
-                    })
-                    continue
-                raise QwenError(f"Qwen output failed validation after {1 + max_retries} attempts: {e}") from e
+                last_error = f"failed schema validation: {e}"
+                continue
 
-        raise QwenError("Unreachable")
+        raise QwenError(
+            f"Qwen output invalid after {1 + max_retries} attempts: {last_error[:500]}"
+        )

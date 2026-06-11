@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 def _id() -> str:
@@ -13,6 +13,10 @@ def _id() -> str:
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _is_safe_url(url: str) -> bool:
+    return url.startswith("https://") or url.startswith("http://")
 
 
 class Citation(BaseModel):
@@ -32,9 +36,24 @@ class ProductCard(BaseModel):
     fit_score: Literal["strong", "partial", "poor"]
     fit_rationale: str
     community_note: str | None = None
+    quality_score: float | None = None
     specs: dict[str, str] = Field(default_factory=dict)
     risks: list[str] = Field(default_factory=list)
     selected_for_purchase: bool = False
+
+    @model_validator(mode="after")
+    def _sanitize(self) -> "ProductCard":
+        # LLM/web-extracted URLs: never let a non-http(s) scheme reach an href
+        if self.source_url and not _is_safe_url(self.source_url):
+            self.source_url = ""
+        if self.image_url and not _is_safe_url(self.image_url):
+            self.image_url = None
+        # Clamp LLM-produced star ratings to the 0-5 half-step scale instead
+        # of failing the whole evaluation on one bad value
+        if self.quality_score is not None:
+            clamped = min(5.0, max(0.0, self.quality_score))
+            self.quality_score = round(clamped * 2) / 2
+        return self
 
 
 class Need(BaseModel):
@@ -63,7 +82,7 @@ class ResearchSession(BaseModel):
     budget: float | None = None
     wiki_context: list[str] = Field(default_factory=list)
     needs: list[Need] = Field(default_factory=list)
-    status: Literal["created", "analyzing", "researching", "complete", "decided"] = "created"
+    status: Literal["created", "analyzing", "researching", "complete", "failed", "decided"] = "created"
     lookup_result: DirectLookupResult | None = None
 
 
