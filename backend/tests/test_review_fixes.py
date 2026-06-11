@@ -84,6 +84,66 @@ def test_extract_price_hints_no_comma_thousands():
     assert "129" not in hints
 
 
+# --- URL grounding (anti-fabrication) -------------------------------------------
+
+def test_ground_products_drops_fabricated_urls():
+    from services.product_evaluator import _ground_products
+
+    real = "https://www.amazon.com/Books-Hand-Neutral-Adhesive-spout/dp/B0025U109S"
+    products = [
+        _card(source_url=real),
+        # The exact fabrication pattern observed in production: plausible
+        # slug, no ASIN, never appeared in any search result
+        _card(source_url="https://www.amazon.com/bookbinding-paper-short-grain"),
+    ]
+    grounded = _ground_products(products, [real, "https://reddit.com/r/bookbinding/x"])
+    assert [p.source_url for p in grounded] == [real]
+
+
+def test_ground_products_survives_amazon_url_canonicalization():
+    from services.product_evaluator import _ground_products
+
+    # Model trims the title slug; same ASIN + host must still match
+    products = [_card(source_url="https://www.amazon.com/dp/B0025U109S")]
+    candidates = ["https://us.amazon.com/Books-Hand-Neutral-Adhesive-spout/dp/B0025U109S"]
+    assert len(_ground_products(products, candidates)) == 1
+
+
+def test_ground_products_nullifies_fabricated_image():
+    from services.product_evaluator import _ground_products
+
+    real = "https://www.ebay.com/itm/115431630855"
+    products = [_card(source_url=real, image_url="https://example.com/paper.jpg")]
+    grounded = _ground_products(products, [real])
+    assert grounded[0].image_url is None
+
+
+def test_ground_products_empty_candidates_drops_everything():
+    from services.product_evaluator import _ground_products
+
+    products = [_card(source_url="https://www.amazon.com/dp/B0025U109S")]
+    assert _ground_products(products, []) == []
+
+
+def test_collect_candidate_urls_includes_message_and_content():
+    from services.product_evaluator import _collect_candidate_urls
+    from services.vane_client import VaneSearchResult, VaneSource
+
+    vr = VaneSearchResult(
+        message="See https://www.amazon.com/dp/B0TEST1 for details",
+        sources=[VaneSource(
+            title="t",
+            url="https://www.ebay.com/itm/123456789",
+            content="also at https://www.walmart.com/ip/987654",
+        )],
+    )
+    urls = _collect_candidate_urls(vr, scraped_pages=[("https://newegg.com/p/x", "")])
+    assert "https://www.ebay.com/itm/123456789" in urls
+    assert "https://www.amazon.com/dp/B0TEST1" in urls
+    assert "https://www.walmart.com/ip/987654" in urls
+    assert "https://newegg.com/p/x" in urls
+
+
 # --- Scrape URL allowlist -------------------------------------------------------
 
 def test_scrape_allowlist_exact_host():

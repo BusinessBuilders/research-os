@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import re
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field
 
@@ -8,7 +10,15 @@ from core.models import ProductCard
 from services.qwen import QwenClient
 from services.vane_client import VaneSearchResult
 
+logger = logging.getLogger(__name__)
+
 SHARED_RULES = """
+URL GROUNDING RULES (CRITICAL):
+- source_url MUST be copied EXACTLY, character for character, from a URL that appears in the provided sources or product pages. NEVER construct, guess, shorten, or "clean up" a URL.
+- If a product is mentioned but no real URL for it appears in the inputs, OMIT that product entirely.
+- image_url: only if an image URL literally appears in the inputs; otherwise null. Never invent placeholder URLs.
+- If the inputs contain no real purchasable products, return {"products": []}. An empty result is correct; invented products are never acceptable.
+""" + """
 PRICE RULES:
 - price = the actual listed price as a number. Search the text CAREFULLY for prices — they appear as $1,299.00, USD 129.99, "Price: $45", strikethrough sale prices, etc. Prefer the current/sale price over the list price.
 - If a "Detected prices on this page" line is provided for a scraped page, those numbers were found in the page text — match the right one to the product. Do NOT copy a detected price that belongs to a different product on the same page.
@@ -74,6 +84,96 @@ class EvaluationResult(BaseModel):
 # stops a partial match from ever splitting a number
 _PRICE_PATTERN = re.compile(r"(?:US?\$|USD)\s?(\d+(?:,\d{3})*(?:\.\d{2})?)(?!\d)|\$\s?(\d+(?:,\d{3})*(?:\.\d{2})?)(?!\d)")
 
+_URL_PATTERN = re.compile(r"https?://[^\s\)\]\"'<>]+")
+
+_PRODUCT_ID_PATTERNS = (
+    re.compile(r"/dp/([A-Za-z0-9]{8,14})"),    # Amazon ASIN
+    re.compile(r"/itm/(\d{6,})"),              # eBay item
+    re.compile(r"/p/(\d{6,})"),                # eBay product
+)
+
+
+def _norm_url(url: str) -> tuple[str, str]:
+    try:
+        p = urlparse(url.strip().lower())
+    except ValueError:
+        return ("", "")
+    host = p.hostname or ""
+    for prefix in ("www.", "us.", "smile."):
+        if host.startswith(prefix):
+            host = host[len(prefix):]
+            break
+    return (host, p.path.rstrip("/"))
+
+
+def _product_id(path: str) -> str | None:
+    for pattern in _PRODUCT_ID_PATTERNS:
+        m = pattern.search(path)
+        if m:
+            return m.group(1)
+    return None
+
+
+def _collect_candidate_urls(
+    vane_result: VaneSearchResult,
+    scraped_pages: list[tuple[str, str]] | None = None,
+    community_context: str = "",
+) -> list[str]:
+    """Every URL the model could legitimately have seen in its inputs."""
+    urls: list[str] = []
+    for s in vane_result.sources:
+        if s.url:
+            urls.append(s.url)
+        urls.extend(_URL_PATTERN.findall(s.content or ""))
+    urls.extend(_URL_PATTERN.findall(vane_result.message or ""))
+    urls.extend(_URL_PATTERN.findall(community_context or ""))
+    for url, content in scraped_pages or []:
+        urls.append(url)
+        urls.extend(_URL_PATTERN.findall(content or ""))
+    return urls
+
+
+def _is_grounded(url: str, candidates: list[tuple[str, str]]) -> bool:
+    host, path = _norm_url(url)
+    if not host:
+        return False
+    pid = _product_id(path)
+    for c_host, c_path in candidates:
+        if host != c_host:
+            continue
+        if path == c_path or (path and (c_path.startswith(path) or path.startswith(c_path))):
+            return True
+        # Same retailer product id survives URL canonicalization
+        # (e.g. /Long-Title-Slug/dp/ASIN vs /dp/ASIN)
+        if pid is not None and _product_id(c_path) == pid:
+            return True
+    return False
+
+
+def _ground_products(
+    products: list[ProductCard],
+    candidate_urls: list[str],
+) -> list[ProductCard]:
+    """Drop products whose URL does not come from the actual inputs.
+
+    LLMs given thin inputs fabricate plausible-looking product URLs; a
+    fabricated link that 404s on Amazon is worse than no product at all."""
+    candidates = [_norm_url(u) for u in candidate_urls]
+    grounded: list[ProductCard] = []
+    dropped = 0
+    for p in products:
+        if not p.source_url or not _is_grounded(p.source_url, candidates):
+            dropped += 1
+            continue
+        if p.image_url and not _is_grounded(p.image_url, candidates):
+            p.image_url = None
+        grounded.append(p)
+    if dropped:
+        logger.warning(
+            f"Dropped {dropped}/{len(products)} products with fabricated/ungrounded URLs"
+        )
+    return grounded
+
 
 def _extract_price_hints(markdown: str, limit: int = 8) -> list[str]:
     """Pull dollar amounts out of scraped page text so the evaluator can't miss them."""
@@ -110,7 +210,10 @@ async def evaluate_products(
         user="\n\n".join(parts),
         response_model=EvaluationResult,
     )
-    return result.products
+    return _ground_products(
+        result.products,
+        _collect_candidate_urls(vane_result, community_context=community_context),
+    )
 
 
 async def evaluate_products_from_pages(
@@ -147,4 +250,7 @@ async def evaluate_products_from_pages(
         user="\n\n".join(parts),
         response_model=EvaluationResult,
     )
-    return result.products
+    return _ground_products(
+        result.products,
+        _collect_candidate_urls(vane_result, scraped_pages, community_context),
+    )

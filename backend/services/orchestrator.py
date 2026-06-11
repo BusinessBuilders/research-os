@@ -204,6 +204,13 @@ async def _research_single_need(
                 seen_urls.add(src.url)
                 unique_sources.append(src)
 
+        # No data = no evaluation: an LLM given empty inputs fabricates
+        # plausible-looking products with dead URLs
+        if not unique_sources and not community_text.strip():
+            raise RuntimeError(
+                "All searches returned no sources — check Vane/SearXNG"
+            )
+
         nr.status = "evaluating"
         await repo.save_need_result(nr)
 
