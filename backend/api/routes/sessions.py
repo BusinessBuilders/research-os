@@ -147,9 +147,16 @@ async def start_research(
         await repo.save_session(session)
         return {"session": session}
 
+    # Idempotency: a double-submit must not spawn a second pipeline
+    existing = await repo.get_job(session_id)
+    if existing and existing.status in ("queued", "searching", "evaluating", "synthesizing"):
+        return {"job_id": existing.job_id, "status": existing.status}
+
     # Honor the gap-analysis checkbox selection when the frontend sends one
     if req is not None and req.need_ids is not None and session.needs:
         chosen = set(req.need_ids)
+        if not any(n.id in chosen for n in session.needs):
+            raise HTTPException(400, "need_ids matched no needs — nothing to research")
         for need in session.needs:
             need.selected = need.id in chosen
 
@@ -225,6 +232,11 @@ async def retry_research(
     session = await repo.get_session(session_id)
     if session is None:
         raise HTTPException(404, "Session not found")
+
+    if session.mode == "direct-lookup":
+        session = await run_direct_lookup(session, vane)
+        await repo.save_session(session)
+        return {"session": session}
 
     # Supersede any unfinished previous job so startup recovery doesn't
     # re-spawn a second pipeline for this session

@@ -48,11 +48,13 @@ class ProductCard(BaseModel):
             self.source_url = ""
         if self.image_url and not _is_safe_url(self.image_url):
             self.image_url = None
-        # Clamp LLM-produced star ratings to the 0-5 half-step scale instead
-        # of failing the whole evaluation on one bad value
+        # Clamp LLM-produced star ratings to the 1-5 half-step scale instead
+        # of failing the whole evaluation on one bad value. The scale starts
+        # at 1.0 — anything below (including 0 and NaN) means "no evidence",
+        # which must render as no rating, not a fabricated worst rating.
         if self.quality_score is not None:
-            clamped = min(5.0, max(0.0, self.quality_score))
-            self.quality_score = round(clamped * 2) / 2
+            clamped = round(min(5.0, max(0.0, self.quality_score)) * 2) / 2
+            self.quality_score = clamped if clamped >= 1.0 else None
         return self
 
 

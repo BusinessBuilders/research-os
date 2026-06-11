@@ -82,6 +82,12 @@ export default function ResultsPage() {
       }
       const s: ResearchSession = await res.json();
       setLoadError(null);
+      // Research hasn't started — there's no job to poll here; the session
+      // detail page owns routing for pre-research states.
+      if (s.status === "created" || s.status === "analyzing") {
+        router.replace(`/research/${id}`);
+        return;
+      }
       setSession(s);
       if (s.status === "complete" || s.status === "decided" || s.status === "failed") {
         setResearching(false);
@@ -89,7 +95,7 @@ export default function ResultsPage() {
     } catch {
       setLoadError("Couldn't reach the research service.");
     }
-  }, [id]);
+  }, [id, router]);
 
   useEffect(() => { loadSession(); }, [loadSession]);
 

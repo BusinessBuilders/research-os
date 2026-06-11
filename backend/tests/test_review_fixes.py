@@ -43,9 +43,16 @@ def test_product_card_nullifies_bad_image_url():
 
 def test_quality_score_clamped_and_rounded_to_half_steps():
     assert _card(quality_score=7.3).quality_score == 5.0
-    assert _card(quality_score=-2).quality_score == 0.0
     assert _card(quality_score=4.3).quality_score == 4.5
+    assert _card(quality_score=1.0).quality_score == 1.0
     assert _card(quality_score=None).quality_score is None
+
+
+def test_quality_score_below_scale_means_no_evidence():
+    # Scale is 1-5; 0/negative/NaN must render as "no rating", never 0 stars
+    assert _card(quality_score=0).quality_score is None
+    assert _card(quality_score=-2).quality_score is None
+    assert _card(quality_score=float("nan")).quality_score is None
 
 
 # --- Price hint extraction ------------------------------------------------------
@@ -67,6 +74,14 @@ def test_extract_price_hints_dedupes_and_limits():
 
 def test_extract_price_hints_empty_when_no_prices():
     assert _extract_price_hints("no prices here at all") == []
+
+
+def test_extract_price_hints_no_comma_thousands():
+    # "$1299.00" must capture 1299.00, never a partial 129
+    hints = _extract_price_hints("Sale price $1299.00 today, also $12345 option")
+    assert "1299.00" in hints
+    assert "12345" in hints
+    assert "129" not in hints
 
 
 # --- Scrape URL allowlist -------------------------------------------------------
@@ -127,6 +142,29 @@ async def test_find_incomplete_jobs_skips_finished(repo):
     assert await repo.find_incomplete_jobs() == []
 
 
+async def test_resaving_old_job_does_not_become_latest(repo):
+    # Upsert must preserve rowid: a running pipeline re-saving its (superseded)
+    # job must not make it "latest" again over the retry job
+    job_a = ResearchJob(session_id="s1", status="searching")
+    await repo.save_job(job_a)
+    job_b = ResearchJob(session_id="s1", status="searching")
+    await repo.save_job(job_b)
+
+    job_a.needs_completed = 2
+    await repo.save_job(job_a)  # progress update from the old pipeline
+
+    latest = await repo.get_job("s1")
+    assert latest.job_id == job_b.job_id
+
+
+async def test_get_job_by_id(repo):
+    job = ResearchJob(session_id="s1", status="searching")
+    await repo.save_job(job)
+    found = await repo.get_job_by_id(job.job_id)
+    assert found is not None and found.job_id == job.job_id
+    assert await repo.get_job_by_id("missing") is None
+
+
 async def test_concurrent_need_result_writes(repo):
     async def write(i: int):
         nr = NeedResult(
@@ -140,3 +178,27 @@ async def test_concurrent_need_result_writes(repo):
     await asyncio.gather(*(write(i) for i in range(25)))
     results = await repo.get_need_results("s1")
     assert len(results) == 25
+
+
+# --- /research selection guard ---------------------------------------------------
+
+async def test_research_rejects_empty_selection():
+    from httpx import ASGITransport, AsyncClient
+
+    from api.main import app
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        created = await client.post("/api/sessions", json={
+            "goal": "robot lab restock",
+            "needs_list": ["ER11 collet set", "dial indicator"],
+        })
+        assert created.status_code == 200
+        session_id = created.json()["id"]
+
+        # Unknown / empty selection must not silently deselect every need
+        res = await client.post(
+            f"/api/sessions/{session_id}/research",
+            json={"need_ids": ["does-not-exist"]},
+        )
+        assert res.status_code == 400

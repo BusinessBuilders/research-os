@@ -285,6 +285,25 @@ async def _research_need_with_timeout(
         return nr
 
 
+async def _finalize_cancelled(
+    session: ResearchSession,
+    repo: SessionRepository,
+) -> ResearchSession:
+    """Land a cancelled session in a terminal state with its partial results.
+
+    Leaving status='researching' strands the UI in a permanent spinner."""
+    all_results = await repo.get_need_results(session.id)
+    result_map = {nr.need_id: nr for nr in all_results}
+    for need in session.needs:
+        nr = result_map.get(need.id)
+        if nr and nr.products:
+            need.products = nr.products
+    has_partial = any(nr.status == "complete" for nr in all_results)
+    session.status = "complete" if has_partial else "failed"
+    await repo.save_session(session)
+    return session
+
+
 async def run_research_pipeline(
     session: ResearchSession,
     job: ResearchJob,
@@ -347,9 +366,11 @@ async def _run_research_pipeline_inner(
 
     BATCH_SIZE = 3
     for i in range(0, len(remaining), BATCH_SIZE):
-        fresh_job = await repo.get_job(session.id)
+        # Check OUR job row by job_id — get_job(session_id) returns the latest
+        # job, which after a retry is a different (superseding) job
+        fresh_job = await repo.get_job_by_id(job.job_id)
         if fresh_job and fresh_job.status == "cancelled":
-            return session
+            return await _finalize_cancelled(session, repo)
 
         batch = remaining[i:i + BATCH_SIZE]
         logger.info(f"Research batch {i // BATCH_SIZE + 1}/{(len(remaining) + BATCH_SIZE - 1) // BATCH_SIZE}: {[n.description[:30] for n in batch]}")
@@ -359,17 +380,32 @@ async def _run_research_pipeline_inner(
         ]
         await asyncio.gather(*batch_tasks, return_exceptions=True)
 
+        # Re-check before the progress save: writing our stale in-memory
+        # status would clobber a cancel issued while the batch was running
+        fresh_job = await repo.get_job_by_id(job.job_id)
+        if fresh_job and fresh_job.status == "cancelled":
+            return await _finalize_cancelled(session, repo)
+
         job.needs_completed = len([
             nr for nr in await repo.get_need_results(session.id)
             if nr.status == "complete"
         ])
         await repo.save_job(job)
 
-    fresh_job = await repo.get_job(session.id)
+    fresh_job = await repo.get_job_by_id(job.job_id)
     if fresh_job and fresh_job.status == "cancelled":
-        return session
+        return await _finalize_cancelled(session, repo)
 
     all_results = await repo.get_need_results(session.id)
+
+    # A crashed timeout-handler can leave a row in a non-terminal state while
+    # the job completes — never leave a need showing a spinner forever
+    for nr in all_results:
+        if nr.status not in ("complete", "failed"):
+            nr.status = "failed"
+            nr.error = nr.error or "Did not finish"
+            await repo.save_need_result(nr)
+
     result_map = {nr.need_id: nr for nr in all_results}
     for need in selected_needs:
         nr = result_map.get(need.id)

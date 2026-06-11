@@ -74,8 +74,12 @@ class QwenClient:
             except httpx.HTTPError as e:
                 raise QwenError(f"Qwen API call failed: {e}") from e
 
-            data = response.json()
-            content = data["choices"][0]["message"].get("content") or ""
+            try:
+                data = response.json()
+                content = data["choices"][0]["message"].get("content") or ""
+            except (ValueError, KeyError, IndexError, TypeError) as e:
+                last_error = f"malformed completion response: {e}"
+                continue
             if not content.strip():
                 last_error = "empty response"
                 continue

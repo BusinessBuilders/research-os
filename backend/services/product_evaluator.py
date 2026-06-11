@@ -70,7 +70,9 @@ class EvaluationResult(BaseModel):
     products: list[ProductCard] = Field(default_factory=list)
 
 
-_PRICE_PATTERN = re.compile(r"(?:US?\$|USD\s?)\s?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)|\$\s?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)")
+# \d+ (not \d{1,3}) so "$1299.00" captures 1299.00, not 129; trailing (?!\d)
+# stops a partial match from ever splitting a number
+_PRICE_PATTERN = re.compile(r"(?:US?\$|USD)\s?(\d+(?:,\d{3})*(?:\.\d{2})?)(?!\d)|\$\s?(\d+(?:,\d{3})*(?:\.\d{2})?)(?!\d)")
 
 
 def _extract_price_hints(markdown: str, limit: int = 8) -> list[str]:

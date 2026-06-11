@@ -52,11 +52,13 @@ export function ResearchStatus({ sessionId, onComplete }: { sessionId: string; o
     };
   }, [sessionId]);
 
-  // Guard with a ref so a re-render mid-research never starts a second timer.
+  // Depend on the boolean, not the job object — each 3s poll creates a new
+  // job object, and re-running the effect per poll would reset the 1s timer's
+  // phase and undercount elapsed time.
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const jobRunning = !!job && !["complete", "failed", "cancelled"].includes(job.status);
   useEffect(() => {
-    const running = job && !["complete", "failed", "cancelled"].includes(job.status);
-    if (!running) {
+    if (!jobRunning) {
       if (timerRef.current != null) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -71,11 +73,15 @@ export function ResearchStatus({ sessionId, onComplete }: { sessionId: string; o
         timerRef.current = null;
       }
     };
-  }, [job]);
+  }, [jobRunning]);
 
   async function handleCancel() {
     setCancelling(true);
-    await fetch(`${API_URL}/api/sessions/${sessionId}/cancel`, { method: "POST" });
+    try {
+      await fetch(`${API_URL}/api/sessions/${sessionId}/cancel`, { method: "POST" });
+    } catch {
+      setCancelling(false); // let the user try again if the request failed
+    }
   }
 
   if (!job) {

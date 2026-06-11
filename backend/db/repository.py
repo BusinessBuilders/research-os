@@ -28,9 +28,14 @@ class SessionRepository:
             await self._conn.close()
 
     async def save_session(self, session: ResearchSession) -> None:
+        # Upsert (not INSERT OR REPLACE): REPLACE deletes + reinserts, which
+        # assigns a new rowid and breaks "latest by rowid" ordering on jobs
         async with self._write_lock:
             await self._conn.execute(
-                "INSERT OR REPLACE INTO sessions (id, data, created_at) VALUES (?, ?, ?)",
+                """
+                INSERT INTO sessions (id, data, created_at) VALUES (?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET data = excluded.data
+                """,
                 (session.id, session.model_dump_json(), session.created_at.isoformat()),
             )
             await self._conn.commit()
@@ -54,7 +59,10 @@ class SessionRepository:
     async def save_job(self, job: ResearchJob) -> None:
         async with self._write_lock:
             await self._conn.execute(
-                "INSERT OR REPLACE INTO jobs (job_id, session_id, data) VALUES (?, ?, ?)",
+                """
+                INSERT INTO jobs (job_id, session_id, data) VALUES (?, ?, ?)
+                ON CONFLICT(job_id) DO UPDATE SET data = excluded.data
+                """,
                 (job.job_id, job.session_id, job.model_dump_json()),
             )
             await self._conn.commit()
@@ -69,10 +77,22 @@ class SessionRepository:
             return None
         return ResearchJob.model_validate_json(row["data"])
 
+    async def get_job_by_id(self, job_id: str) -> ResearchJob | None:
+        cursor = await self._conn.execute(
+            "SELECT data FROM jobs WHERE job_id = ?", (job_id,)
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        return ResearchJob.model_validate_json(row["data"])
+
     async def save_need_result(self, nr: NeedResult) -> None:
         async with self._write_lock:
             await self._conn.execute(
-                "INSERT OR REPLACE INTO need_results (session_id, need_id, data) VALUES (?, ?, ?)",
+                """
+                INSERT INTO need_results (session_id, need_id, data) VALUES (?, ?, ?)
+                ON CONFLICT(session_id, need_id) DO UPDATE SET data = excluded.data
+                """,
                 (nr.session_id, nr.need_id, nr.model_dump_json()),
             )
             await self._conn.commit()
