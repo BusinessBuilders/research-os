@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { BudgetPill } from "@/components/budget-pill";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+import { API_URL } from "@/lib/api";
 
 export default function NewResearch() {
   const router = useRouter();
@@ -21,6 +20,8 @@ export default function NewResearch() {
 
   const listLines = listText.split("\n").filter(l => l.trim());
   const hasInput = mode === "goal" ? goal.trim() : listLines.length > 0;
+  const budgetNum = parseFloat(budget);
+  const hasBudget = Number.isFinite(budgetNum) && budgetNum > 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -97,9 +98,11 @@ export default function NewResearch() {
         style={{ background: "var(--surface-2)", boxShadow: "var(--ring-hairline), var(--elev-1)" }}
       >
         <form onSubmit={handleSubmit}>
-          <div className="flex justify-end mb-3.5">
-            <BudgetPill amount={4200} />
-          </div>
+          {hasBudget && (
+            <div className="flex justify-end mb-3.5">
+              <BudgetPill amount={budgetNum} />
+            </div>
+          )}
 
           {mode === "goal" ? (
             <>

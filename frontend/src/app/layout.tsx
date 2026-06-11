@@ -66,6 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Floating advisor orb */}
         <button
           title="Ask the advisor"
+          aria-label="Ask the advisor"
           className="fixed right-6 bottom-6 w-[52px] h-[52px] rounded-full border-none cursor-pointer text-white flex items-center justify-center transition-transform hover:scale-105"
           style={{
             background: "var(--brand-gradient)",

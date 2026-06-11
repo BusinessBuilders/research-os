@@ -6,8 +6,7 @@ import { ChevronRight, CircleCheck, CircleX, Circle, Loader, RotateCw, Search, S
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { ResearchSession, JobStatus, NeedStatus } from "@/lib/types";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+import { API_URL } from "@/lib/api";
 
 const PIPELINE_STEPS = [
   { id: "analyzing", label: "Analyzing\nNeeds", icon: Sparkles },
@@ -16,10 +15,10 @@ const PIPELINE_STEPS = [
   { id: "complete", label: "Complete", icon: CircleCheck },
 ];
 
-function pipelineStageIndex(status: string): number {
-  if (status === "created") return -1;
-  if (status === "analyzing") return 0;
-  if (status === "researching") return 1;
+/** Returns the index of the currently ACTIVE pipeline stage (-1 = none). */
+function pipelineStageIndex(status: string, evaluating = false): number {
+  if (status === "created" || status === "analyzing") return 0;
+  if (status === "researching") return evaluating ? 2 : 1;
   if (status === "complete" || status === "decided") return 3;
   return -1;
 }
@@ -79,67 +78,94 @@ export default function SessionDetail() {
   const [elapsed, setElapsed] = useState(0);
   const [processing, setProcessing] = useState(false);
 
-  const loadSession = useCallback(async () => {
-    const res = await fetch(`${API_URL}/api/sessions/${id}`);
-    if (!res.ok) return;
-    const s: ResearchSession = await res.json();
-    setSession(s);
-    return s;
+  const loadSession = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch(`${API_URL}/api/sessions/${id}`, { signal });
+      if (!res.ok) return;
+      const s: ResearchSession = await res.json();
+      if (signal?.aborted) return;
+      setSession(s);
+      return s;
+    } catch {
+      return; // aborted or unreachable
+    }
   }, [id]);
 
   useEffect(() => {
+    let mounted = true;
+    const controller = new AbortController();
+
     async function init() {
-      const s = await loadSession();
-      if (!s) return;
+      try {
+        const s = await loadSession(controller.signal);
+        if (!mounted || !s) return;
 
-      if (s.status === "decided") { router.push(`/research/${id}/decide`); return; }
-      if (s.status === "complete" || s.status === "researching") { router.push(`/research/${id}/results`); return; }
+        if (s.status === "decided") { router.push(`/research/${id}/decide`); return; }
+        if (s.status === "complete" || s.status === "researching") { router.push(`/research/${id}/results`); return; }
 
-      if (s.status === "analyzing" && s.needs?.length > 0) {
-        router.push(`/research/${id}/gaps`);
-        return;
-      }
-
-      if (s.status === "created" && s.mode === "goal-driven") {
-        setProcessing(true);
-        await fetch(`${API_URL}/api/sessions/${id}/analyze`, { method: "POST" });
-        const updated = await loadSession();
-        setProcessing(false);
-        if (updated && updated.needs?.length > 0) {
+        if (s.status === "analyzing" && s.needs?.length > 0) {
           router.push(`/research/${id}/gaps`);
+          return;
         }
-        return;
-      }
 
-      if (s.status === "created") {
-        setProcessing(true);
-        await fetch(`${API_URL}/api/sessions/${id}/research`, { method: "POST" });
-        setProcessing(false);
-        router.push(`/research/${id}/results`);
-        return;
-      }
+        if (s.status === "created" && s.mode === "goal-driven") {
+          setProcessing(true);
+          await fetch(`${API_URL}/api/sessions/${id}/analyze`, { method: "POST", signal: controller.signal });
+          const updated = await loadSession(controller.signal);
+          if (!mounted) return;
+          setProcessing(false);
+          if (updated && updated.needs?.length > 0) {
+            router.push(`/research/${id}/gaps`);
+          }
+          return;
+        }
+
+        if (s.status === "created") {
+          setProcessing(true);
+          await fetch(`${API_URL}/api/sessions/${id}/research`, { method: "POST", signal: controller.signal });
+          if (!mounted) return;
+          setProcessing(false);
+          router.push(`/research/${id}/results`);
+          return;
+        }
+      } catch { /* aborted or unreachable */ }
     }
     init();
+
+    return () => {
+      mounted = false;
+      controller.abort();
+    };
   }, [id, router, loadSession]);
 
   useEffect(() => {
     if (!session || cancelled) return;
     if (session.status === "complete" || session.status === "decided") return;
 
+    let mounted = true;
+    const controller = new AbortController();
+
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_URL}/api/sessions/${id}/status`);
+        const res = await fetch(`${API_URL}/api/sessions/${id}/status`, { signal: controller.signal });
+        if (!mounted) return;
         if (res.ok) {
           const data: JobStatus = await res.json();
+          if (!mounted) return;
           setJob(data);
           if (data.status === "complete" || data.status === "failed" || data.status === "cancelled") {
             clearInterval(interval);
-            await loadSession();
+            await loadSession(controller.signal);
           }
         }
       } catch { /* polling */ }
     }, 3000);
-    return () => clearInterval(interval);
+
+    return () => {
+      mounted = false;
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [id, session, cancelled, loadSession]);
 
   useEffect(() => {
@@ -164,7 +190,12 @@ export default function SessionDetail() {
     );
   }
 
-  const stageIdx = job ? pipelineStageIndex(job.status === "complete" ? "complete" : session.status) : pipelineStageIndex(session.status);
+  const anyEvaluating = session.status === "researching" &&
+    (job?.need_statuses?.some(ns => ns.status === "evaluating") ?? false);
+  const stageIdx = pipelineStageIndex(
+    job?.status === "complete" ? "complete" : session.status,
+    anyEvaluating,
+  );
   const isComplete = session.status === "complete" || session.status === "decided";
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
@@ -209,7 +240,7 @@ export default function SessionDetail() {
 
         <div className="flex gap-2">
           {PIPELINE_STEPS.map((step, i) => {
-            const state = cancelled ? "idle" : (i <= stageIdx || isComplete) ? "done" : i === stageIdx + 1 ? "active" : "idle";
+            const state = cancelled ? "idle" : (i < stageIdx || isComplete) ? "done" : i === stageIdx ? "active" : "idle";
             const color = state === "done" ? "var(--success-text)" : state === "active" ? "var(--brand-periwinkle)" : "var(--text-faint)";
             return (
               <div key={step.id} className="flex-1 flex flex-col gap-2">

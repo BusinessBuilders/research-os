@@ -9,8 +9,11 @@ const STATUS_MAP = {
   failed: { className: "bg-[var(--danger-soft)] text-[var(--danger-text)] border-[rgba(239,68,68,0.3)]", label: "FAILED" },
 } as const;
 
+const UNKNOWN_CLASS = "bg-[var(--surface-soft)] text-[var(--text-secondary)] border-[var(--hairline)]";
+
 export function StatusBadge({ status }: { status: string }) {
-  const m = STATUS_MAP[status as keyof typeof STATUS_MAP] || STATUS_MAP.created;
+  const m = STATUS_MAP[status as keyof typeof STATUS_MAP]
+    || { className: UNKNOWN_CLASS, label: status.toUpperCase() };
   return (
     <Badge variant="outline" className={`font-mono text-[0.75rem] uppercase tracking-[0.08em] rounded-full border ${m.className}`}>
       {m.label}

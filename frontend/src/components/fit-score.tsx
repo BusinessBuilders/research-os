@@ -17,7 +17,10 @@ export function FitScore({
 }) {
   return (
     <span className={`inline-flex items-center gap-2 ${className}`}>
-      <span className={`w-2 h-2 rounded-full shrink-0 ${DOT_STYLES[score]}`} />
+      <span
+        className={`w-2 h-2 rounded-full shrink-0 ${DOT_STYLES[score]}`}
+        {...(!showLabel ? { role: "img", "aria-label": LABELS[score] } : { "aria-hidden": true })}
+      />
       {showLabel && (
         <span className="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground">
           {LABELS[score]}

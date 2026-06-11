@@ -7,25 +7,58 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PriorityBadge } from "@/components/priority-badge";
 import type { ResearchSession, Need } from "@/lib/types";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+import { API_URL } from "@/lib/api";
 
 export default function GapsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [session, setSession] = useState<ResearchSession | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [researchError, setResearchError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/sessions/${id}`).then(r => r.json()).then((s: ResearchSession) => {
-      setSession(s);
-      setSelected(new Set(s.needs?.filter((n: Need) => n.selected || n.priority !== "nice-to-have").map((n: Need) => n.id) || []));
-    });
+    fetch(`${API_URL}/api/sessions/${id}`)
+      .then(res => {
+        if (!res.ok) throw new Error(`Session fetch failed (${res.status})`);
+        return res.json();
+      })
+      .then((s: ResearchSession) => {
+        setLoadError(null);
+        setSession(s);
+        setSelected(new Set(s.needs?.filter((n: Need) => n.selected || n.priority !== "nice-to-have").map((n: Need) => n.id) || []));
+      })
+      .catch(() => setLoadError("Couldn't load this session. The research service may be unreachable."));
   }, [id]);
 
   async function handleResearch() {
-    await fetch(`${API_URL}/api/sessions/${id}/research`, { method: "POST" });
-    router.push(`/research/${id}/results`);
+    setStarting(true);
+    setResearchError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/sessions/${id}/research`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ need_ids: Array.from(selected) }),
+      });
+      if (!res.ok) throw new Error(`Research start failed (${res.status})`);
+      router.push(`/research/${id}/results`);
+    } catch {
+      setResearchError("Couldn't start research. Check the research service and try again.");
+      setStarting(false);
+    }
+  }
+
+  if (loadError) {
+    return (
+      <div
+        className="rounded-[var(--radius-xl)] p-6 max-w-[560px]"
+        style={{ background: "var(--surface-2)", boxShadow: "var(--ring-hairline), var(--elev-1)" }}
+      >
+        <div className="ros-eyebrow mb-2" style={{ color: "var(--danger-text)" }}>Error</div>
+        <p className="text-sm text-muted-foreground">{loadError}</p>
+      </div>
+    );
   }
 
   if (!session) {
@@ -78,17 +111,21 @@ export default function GapsPage() {
         ))}
       </div>
 
+      {researchError && (
+        <p className="text-sm mb-3" style={{ color: "var(--danger-text)" }}>{researchError}</p>
+      )}
+
       <div className="flex justify-between items-center">
         <span className="text-[13px] text-muted-foreground">
           {selected.size} of {session.needs.length} selected
         </span>
         <Button
           onClick={handleResearch}
-          disabled={selected.size === 0}
+          disabled={selected.size === 0 || starting}
           className="text-white border-none"
           style={{ background: "var(--brand-gradient-h)", boxShadow: "var(--glow-brand)" }}
         >
-          <Search size={15} /> Research {selected.size} Selected
+          <Search size={15} /> {starting ? "Starting…" : `Research ${selected.size} Selected`}
         </Button>
       </div>
     </div>

@@ -9,8 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { FitScore } from "@/components/fit-score";
 import type { ResearchSession } from "@/lib/types";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+import { API_URL } from "@/lib/api";
 
 function DecideContent() {
   const { id } = useParams<{ id: string }>();
@@ -21,11 +20,22 @@ function DecideContent() {
   const [budgetCategory, setBudgetCategory] = useState("");
   const [result, setResult] = useState<{ wiki_path: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [decideError, setDecideError] = useState<string | null>(null);
 
   const selectedIds = searchParams.get("selected")?.split(",").filter(Boolean) || [];
 
   useEffect(() => {
-    fetch(`${API_URL}/api/sessions/${id}`).then(r => r.json()).then(setSession);
+    fetch(`${API_URL}/api/sessions/${id}`)
+      .then(res => {
+        if (!res.ok) throw new Error(`Session fetch failed (${res.status})`);
+        return res.json();
+      })
+      .then((s: ResearchSession) => {
+        setLoadError(null);
+        setSession(s);
+      })
+      .catch(() => setLoadError("Couldn't load this session. The research service may be unreachable."));
   }, [id]);
 
   const selectedProducts = session?.needs.flatMap(n => n.products).filter(p => selectedIds.includes(p.id)) || [];
@@ -33,19 +43,37 @@ function DecideContent() {
 
   async function handleDecide() {
     setSubmitting(true);
-    const res = await fetch(`${API_URL}/api/sessions/${id}/decide`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        selected_product_ids: selectedIds,
-        rationale,
-        project_slug: projectSlug || null,
-        budget_category: budgetCategory || null,
-      }),
-    });
-    const data = await res.json();
-    setResult(data);
+    setDecideError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/sessions/${id}/decide`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          selected_product_ids: selectedIds,
+          rationale,
+          project_slug: projectSlug || null,
+          budget_category: budgetCategory || null,
+        }),
+      });
+      if (!res.ok) throw new Error(`Decide failed (${res.status})`);
+      const data = await res.json();
+      setResult(data);
+    } catch {
+      setDecideError("Couldn't write the decision to the wiki. Check the research service and try again.");
+    }
     setSubmitting(false);
+  }
+
+  if (loadError) {
+    return (
+      <div
+        className="rounded-[var(--radius-xl)] p-6 max-w-[560px] mx-auto"
+        style={{ background: "var(--surface-2)", boxShadow: "var(--ring-hairline), var(--elev-1)" }}
+      >
+        <div className="ros-eyebrow mb-2" style={{ color: "var(--danger-text)" }}>Error</div>
+        <p className="text-sm text-muted-foreground">{loadError}</p>
+      </div>
+    );
   }
 
   if (!session) return <p className="text-muted-foreground animate-pulse">Loading…</p>;
@@ -176,6 +204,10 @@ function DecideContent() {
           />
         </div>
       </div>
+
+      {decideError && (
+        <p className="text-sm mt-3" style={{ color: "var(--danger-text)" }}>{decideError}</p>
+      )}
 
       {/* Actions */}
       <div className="flex justify-end gap-2 mt-[22px]">

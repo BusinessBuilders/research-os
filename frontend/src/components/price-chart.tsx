@@ -6,7 +6,7 @@ import type { ProductCard } from "@/lib/types";
 
 export function PriceChart({ products }: { products: ProductCard[] }) {
   const data = products
-    .filter((p) => p.price)
+    .filter((p): p is ProductCard & { price: number } => p.price != null)
     .map((p) => ({ name: p.name.slice(0, 20), price: p.price }));
 
   if (data.length === 0) return null;

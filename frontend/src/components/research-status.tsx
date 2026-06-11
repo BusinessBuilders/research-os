@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, CircleCheck, CircleX, Circle, Loader } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { JobStatus, NeedStatus } from "@/lib/types";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+import { API_URL } from "@/lib/api";
 
 function NeedIcon({ status }: { status: NeedStatus["status"] }) {
   switch (status) {
@@ -23,27 +22,55 @@ export function ResearchStatus({ sessionId, onComplete }: { sessionId: string; o
   const [cancelling, setCancelling] = useState(false);
   const [elapsed, setElapsed] = useState(0);
 
+  // Hold onComplete in a ref so the polling interval never restarts when the
+  // parent re-renders with a new callback identity.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+
   useEffect(() => {
+    let mounted = true;
+    const controller = new AbortController();
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_URL}/api/sessions/${sessionId}/status`);
+        const res = await fetch(`${API_URL}/api/sessions/${sessionId}/status`, { signal: controller.signal });
+        if (!mounted) return;
         if (res.ok) {
           const data: JobStatus = await res.json();
+          if (!mounted) return;
           setJob(data);
           if (data.status === "complete" || data.status === "failed" || data.status === "cancelled") {
             clearInterval(interval);
-            onComplete();
+            onCompleteRef.current();
           }
         }
       } catch { /* polling */ }
     }, 3000);
-    return () => clearInterval(interval);
-  }, [sessionId, onComplete]);
+    return () => {
+      mounted = false;
+      controller.abort();
+      clearInterval(interval);
+    };
+  }, [sessionId]);
 
+  // Guard with a ref so a re-render mid-research never starts a second timer.
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
-    if (!job || job.status === "complete" || job.status === "failed" || job.status === "cancelled") return;
-    const i = setInterval(() => setElapsed(e => e + 1), 1000);
-    return () => clearInterval(i);
+    const running = job && !["complete", "failed", "cancelled"].includes(job.status);
+    if (!running) {
+      if (timerRef.current != null) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
+    }
+    if (timerRef.current != null) return; // a timer is already running
+    timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => {
+      if (timerRef.current != null) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, [job]);
 
   async function handleCancel() {

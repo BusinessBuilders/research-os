@@ -1,6 +1,6 @@
 import type { ResearchSession, ResearchJob } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {

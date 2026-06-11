@@ -8,6 +8,7 @@ export interface ProductCard {
   image_url: string | null;
   fit_score: "strong" | "partial" | "poor";
   fit_rationale: string;
+  quality_score: number | null;
   community_note: string | null;
   specs: Record<string, string>;
   risks: string[];
@@ -46,7 +47,7 @@ export interface ResearchSession {
   budget: number | null;
   wiki_context: string[];
   needs: Need[];
-  status: "created" | "analyzing" | "researching" | "complete" | "decided";
+  status: "created" | "analyzing" | "researching" | "complete" | "decided" | "failed";
   lookup_result: DirectLookupResult | null;
 }
 
