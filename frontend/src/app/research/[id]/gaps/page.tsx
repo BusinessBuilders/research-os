@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PriorityBadge } from "@/components/priority-badge";
+import { ApproachCard } from "@/components/approach-card";
 import type { ResearchSession, Need } from "@/lib/types";
 import { API_URL } from "@/lib/api";
 
@@ -74,6 +75,8 @@ export default function GapsPage() {
           Qwen broke the goal into needs and scored each against your budget. Pick the ones to research.
         </p>
       </div>
+
+      {session.approach && <ApproachCard approach={session.approach} />}
 
       <div className="flex flex-col gap-2.5 mb-[22px]">
         {session.needs.map((need) => (

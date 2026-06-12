@@ -39,6 +39,24 @@ export interface DirectLookupResult {
   fitment: string | null;
 }
 
+export interface MethodOption {
+  name: string;
+  summary: string;
+  community_take: string;
+}
+
+export interface ApproachSource {
+  title: string;
+  url: string;
+}
+
+export interface ApproachBrief {
+  methods: MethodOption[];
+  recommended: string;
+  why: string;
+  sources: ApproachSource[];
+}
+
 export interface ResearchSession {
   id: string;
   created_at: string;
@@ -47,6 +65,7 @@ export interface ResearchSession {
   budget: number | null;
   wiki_context: string[];
   needs: Need[];
+  approach?: ApproachBrief | null;
   status: "created" | "analyzing" | "researching" | "complete" | "decided" | "failed";
   lookup_result: DirectLookupResult | null;
 }

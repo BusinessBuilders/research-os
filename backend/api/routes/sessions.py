@@ -117,8 +117,9 @@ async def analyze(
         wiki.read_project_page(slug) for slug in session.wiki_context
     )
 
-    needs = await analyze_gaps(qwen, session.goal, equipment, context_text, session.budget, vane=vane)
-    session.needs = needs
+    analysis = await analyze_gaps(qwen, session.goal, equipment, context_text, session.budget, vane=vane)
+    session.needs = analysis.needs
+    session.approach = analysis.approach
     session.status = "analyzing"
     await repo.save_session(session)
     return session

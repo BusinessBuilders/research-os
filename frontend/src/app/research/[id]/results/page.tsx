@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ProductCard } from "@/components/product-card";
 import { PriceChart } from "@/components/price-chart";
 import { ResearchStatus } from "@/components/research-status";
+import { ApproachCard } from "@/components/approach-card";
 import type { ResearchSession, ProductCard as ProductCardType } from "@/lib/types";
 import { API_URL } from "@/lib/api";
 
@@ -217,6 +218,9 @@ export default function ResultsPage() {
           </Button>
         </div>
       )}
+
+      {/* Methods first, then products */}
+      {session.approach && hasProducts && <ApproachCard approach={session.approach} compact />}
 
       {/* Sort & filter toolbar */}
       {hasProducts && (

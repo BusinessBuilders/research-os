@@ -68,6 +68,34 @@ class Need(BaseModel):
     products: list[ProductCard] = Field(default_factory=list)
 
 
+class ApproachSource(BaseModel):
+    title: str
+    url: str
+
+
+class MethodOption(BaseModel):
+    name: str
+    summary: str
+    community_take: str = ""
+
+
+class ApproachBrief(BaseModel):
+    """Popular methods/approaches surfaced during gap analysis.
+
+    Method text comes from the LLM; sources are attached server-side from
+    the actual Vane search results — never LLM-generated URLs."""
+
+    methods: list[MethodOption] = Field(default_factory=list)
+    recommended: str = ""
+    why: str = ""
+    sources: list[ApproachSource] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _sanitize_sources(self) -> "ApproachBrief":
+        self.sources = [s for s in self.sources if _is_safe_url(s.url)]
+        return self
+
+
 class DirectLookupResult(BaseModel):
     answer: str
     confidence: float
@@ -84,6 +112,7 @@ class ResearchSession(BaseModel):
     budget: float | None = None
     wiki_context: list[str] = Field(default_factory=list)
     needs: list[Need] = Field(default_factory=list)
+    approach: ApproachBrief | None = None
     status: Literal["created", "analyzing", "researching", "complete", "failed", "decided"] = "created"
     lookup_result: DirectLookupResult | None = None
 
