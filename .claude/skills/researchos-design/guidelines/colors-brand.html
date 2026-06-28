@@ -1,0 +1,26 @@
+<!-- @dsCard group="Colors" viewport="700x180" name="Brand gradient" subtitle="The one decorative object — orange → magenta → periwinkle" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; background: var(--canvas); padding: 22px; font-family: var(--font-sans); }
+  .ribbon { height: 64px; border-radius: var(--radius-lg); background: var(--brand-gradient-h); box-shadow: var(--glow-brand); }
+  .legs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+  .leg { display: flex; flex-direction: column; gap: 6px; }
+  .chip { height: 34px; border-radius: var(--radius-md); box-shadow: var(--ring-hairline); }
+  .name { font-size: 12px; color: var(--text-secondary); }
+  .hex { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div class="ribbon"></div>
+  <div class="legs">
+    <div class="leg"><div class="chip" style="background:#fc4c02"></div><span class="name">Orange</span><span class="hex">#fc4c02</span></div>
+    <div class="leg"><div class="chip" style="background:#ef2cc1"></div><span class="name">Magenta</span><span class="hex">#ef2cc1</span></div>
+    <div class="leg"><div class="chip" style="background:#bdbbff"></div><span class="name">Periwinkle</span><span class="hex">#bdbbff</span></div>
+    <div class="leg"><div class="chip" style="background:#c8f6f9"></div><span class="name">Mint (accent)</span><span class="hex">#c8f6f9</span></div>
+  </div>
+</body>
+</html>

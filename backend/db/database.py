@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS need_results (
     data TEXT NOT NULL,
     PRIMARY KEY (session_id, need_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_jobs_session ON jobs(session_id);
 """
 
 

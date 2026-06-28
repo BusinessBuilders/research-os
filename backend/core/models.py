@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 def _id() -> str:
@@ -13,6 +13,10 @@ def _id() -> str:
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _is_safe_url(url: str) -> bool:
+    return url.startswith("https://") or url.startswith("http://")
 
 
 class Citation(BaseModel):
@@ -31,9 +35,27 @@ class ProductCard(BaseModel):
     image_url: str | None = None
     fit_score: Literal["strong", "partial", "poor"]
     fit_rationale: str
+    community_note: str | None = None
+    quality_score: float | None = None
     specs: dict[str, str] = Field(default_factory=dict)
     risks: list[str] = Field(default_factory=list)
     selected_for_purchase: bool = False
+
+    @model_validator(mode="after")
+    def _sanitize(self) -> "ProductCard":
+        # LLM/web-extracted URLs: never let a non-http(s) scheme reach an href
+        if self.source_url and not _is_safe_url(self.source_url):
+            self.source_url = ""
+        if self.image_url and not _is_safe_url(self.image_url):
+            self.image_url = None
+        # Clamp LLM-produced star ratings to the 1-5 half-step scale instead
+        # of failing the whole evaluation on one bad value. The scale starts
+        # at 1.0 — anything below (including 0 and NaN) means "no evidence",
+        # which must render as no rating, not a fabricated worst rating.
+        if self.quality_score is not None:
+            clamped = round(min(5.0, max(0.0, self.quality_score)) * 2) / 2
+            self.quality_score = clamped if clamped >= 1.0 else None
+        return self
 
 
 class Need(BaseModel):
@@ -44,6 +66,34 @@ class Need(BaseModel):
     estimated_cost_range: str = ""
     selected: bool = True
     products: list[ProductCard] = Field(default_factory=list)
+
+
+class ApproachSource(BaseModel):
+    title: str
+    url: str
+
+
+class MethodOption(BaseModel):
+    name: str
+    summary: str
+    community_take: str = ""
+
+
+class ApproachBrief(BaseModel):
+    """Popular methods/approaches surfaced during gap analysis.
+
+    Method text comes from the LLM; sources are attached server-side from
+    the actual Vane search results — never LLM-generated URLs."""
+
+    methods: list[MethodOption] = Field(default_factory=list)
+    recommended: str = ""
+    why: str = ""
+    sources: list[ApproachSource] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _sanitize_sources(self) -> "ApproachBrief":
+        self.sources = [s for s in self.sources if _is_safe_url(s.url)]
+        return self
 
 
 class DirectLookupResult(BaseModel):
@@ -62,7 +112,8 @@ class ResearchSession(BaseModel):
     budget: float | None = None
     wiki_context: list[str] = Field(default_factory=list)
     needs: list[Need] = Field(default_factory=list)
-    status: Literal["created", "analyzing", "researching", "complete", "decided"] = "created"
+    approach: ApproachBrief | None = None
+    status: Literal["created", "analyzing", "researching", "complete", "failed", "decided"] = "created"
     lookup_result: DirectLookupResult | None = None
 
 

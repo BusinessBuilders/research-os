@@ -17,7 +17,14 @@ class WikiReader:
         return stripped.strip()
 
     def read_project_page(self, slug: str) -> str:
-        path = self.wiki_path / f"{slug}.md"
+        # slug is user-supplied: strip anything that could traverse out of
+        # the wiki directory, then verify containment after resolving
+        safe_slug = re.sub(r"[^a-zA-Z0-9_-]", "", slug)
+        if not safe_slug:
+            return ""
+        path = (self.wiki_path / f"{safe_slug}.md").resolve()
+        if not path.is_relative_to(self.wiki_path.resolve()):
+            return ""
         if not path.exists():
             return ""
         text = path.read_text(encoding="utf-8")

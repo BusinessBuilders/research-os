@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from functools import lru_cache
 
@@ -18,14 +19,18 @@ def get_settings() -> Settings:
 
 
 _repo: SessionRepository | None = None
+_repo_lock: asyncio.Lock = asyncio.Lock()
 
 
 async def get_repo() -> SessionRepository:
     global _repo
     if _repo is None:
-        settings = get_settings()
-        _repo = SessionRepository(settings.db_path)
-        await _repo.initialize()
+        async with _repo_lock:
+            if _repo is None:
+                settings = get_settings()
+                repo = SessionRepository(settings.db_path)
+                await repo.initialize()
+                _repo = repo
     return _repo
 
 
@@ -53,7 +58,7 @@ def get_qwen() -> QwenClient:
     global _qwen
     if _qwen is None:
         s = get_settings()
-        _qwen = QwenClient(base_url=s.qwen_url)
+        _qwen = QwenClient(base_url=s.qwen_url, model=s.qwen_model)
     return _qwen
 
 

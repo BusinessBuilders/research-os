@@ -1,4 +1,29 @@
+import asyncio
+import os
+import tempfile
+
+# Must run before any test imports api.main — settings are read at import time
+# (CORS middleware) and the repo would otherwise write researchos.db into the
+# backend working directory.
+_TEST_DB = os.path.join(tempfile.mkdtemp(prefix="researchos-test-"), "test.db")
+os.environ.setdefault("RESEARCHOS_DB_PATH", _TEST_DB)
+
 import pytest
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _close_global_repo():
+    """Close the module-global repo connection after the test session.
+
+    aiosqlite's worker thread is non-daemon; an unclosed connection blocks
+    interpreter shutdown and hangs the pytest process forever.
+    """
+    yield
+    from api import deps
+
+    if deps._repo is not None:
+        asyncio.run(deps._repo.close())
+        deps._repo = None
 
 
 @pytest.fixture

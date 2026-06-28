@@ -1,0 +1,26 @@
+<!-- @dsCard group="Spacing" viewport="700x180" name="Radius & elevation" subtitle="10px base radius · ring + navy shadow" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; background: var(--canvas); padding: 24px; font-family: var(--font-sans); }
+  .row { display: flex; gap: 18px; align-items: flex-end; flex-wrap: wrap; }
+  .item { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .box { width: 84px; height: 60px; background: var(--surface-2); }
+  .lbl { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="item"><div class="box" style="border-radius:var(--radius-sm);box-shadow:var(--ring-hairline)"></div><span class="lbl">sm · 6</span></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-md);box-shadow:var(--ring-hairline)"></div><span class="lbl">md · 8</span></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-lg);box-shadow:var(--ring-hairline)"></div><span class="lbl">lg · 10</span></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-xl);box-shadow:var(--ring-hairline)"></div><span class="lbl">xl · 14 (card)</span></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-full);width:60px;box-shadow:var(--ring-hairline)"></div><span class="lbl">full</span></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-xl);box-shadow:var(--ring-hairline),var(--elev-2)"></div><span class="lbl">elev-2</span></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-xl);box-shadow:var(--ring-hairline),var(--glow-brand)"></div><span class="lbl">glow-brand</span></div>
+  </div>
+</body>
+</html>

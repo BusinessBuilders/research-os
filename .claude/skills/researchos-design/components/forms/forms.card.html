@@ -1,0 +1,56 @@
+<!-- @dsCard group="Components" viewport="700x220" name="Form controls" subtitle="Input, textarea, checkbox" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="../card-kit.js"></script>
+<style>
+  body { margin: 0; background: var(--canvas); padding: 24px; }
+  .grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; align-items: start; }
+  .field { margin-bottom: 14px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Input, Textarea, Checkbox } = window.ROSKit;
+  function Demo() {
+    const [a, setA] = React.useState(true);
+    const [b, setB] = React.useState(false);
+    return (
+      <div className="grid">
+        <div>
+          <div className="field">
+            <label className="ros-label">What are you looking for?</label>
+            <Textarea rows={3} defaultValue="upgrade my robotics fab setup to build tendon-driven actuators" />
+            <p className="ros-hint">Describe a goal, a product to research, or a part to look up.</p>
+          </div>
+        </div>
+        <div>
+          <div className="field">
+            <label className="ros-label">Budget (optional)</label>
+            <Input type="number" placeholder="500" defaultValue="4200" mono />
+          </div>
+          <div className="field">
+            <label className="ros-label">Project (wiki slug)</label>
+            <Input mono placeholder="project-eve-humanoid-robot" />
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)", marginBottom: 8 }}>
+            <Checkbox checked={a} onCheckedChange={setA} /> High-torque servo motor
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)" }}>
+            <Checkbox checked={b} onCheckedChange={setB} /> Tendon routing hardware
+          </label>
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>

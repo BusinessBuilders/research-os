@@ -1,0 +1,26 @@
+<!-- @dsCard group="Colors" viewport="700x170" name="Surfaces & hairlines" subtitle="The deep-navy elevation stack" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; background: var(--canvas); padding: 22px; font-family: var(--font-sans); }
+  .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .sw { display: flex; flex-direction: column; gap: 6px; }
+  .chip { height: 56px; border-radius: var(--radius-md); box-shadow: var(--ring-hairline); }
+  .name { font-size: 11px; color: var(--text-secondary); }
+  .hex { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="sw"><div class="chip" style="background:var(--canvas)"></div><span class="name">canvas</span><span class="hex">#010120</span></div>
+    <div class="sw"><div class="chip" style="background:var(--surface-1)"></div><span class="name">surface-1</span><span class="hex">#0a0a1c</span></div>
+    <div class="sw"><div class="chip" style="background:var(--surface-2)"></div><span class="name">surface-2 · card</span><span class="hex">#0e0e24</span></div>
+    <div class="sw"><div class="chip" style="background:var(--surface-3)"></div><span class="name">surface-3</span><span class="hex">#15152e</span></div>
+    <div class="sw"><div class="chip" style="background:var(--surface-soft)"></div><span class="name">soft</span><span class="hex">#1b1b34</span></div>
+    <div class="sw"><div class="chip" style="background:var(--hairline-strong)"></div><span class="name">hairline</span><span class="hex">#313641</span></div>
+  </div>
+</body>
+</html>
